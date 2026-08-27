@@ -2,9 +2,11 @@
 
 require('dotenv').config();
 
+// PORT kasitli olarak burada degil - cPanel/Plesk Node.js Selector (Passenger) surece
+// PORT'u kendisi enjekte eder; bunu zorunlu sayip bos deger gorunce surec kapanirsa
+// Passenger uygulamayi hic ayaga kaldiramaz ve 503 doner.
 const REQUIRED = [
   'NODE_ENV',
-  'PORT',
   'APP_BASE_URL',
   'CACHE_DRIVER',
   'DATABASE_URL',
@@ -57,7 +59,8 @@ if (isProduction && !cookieSecure) {
 module.exports = {
   nodeEnv,
   isProduction,
-  port: Number(process.env.PORT),
+  // Bos/eksikse 3000'e duser; cPanel/Plesk zaten kendi PORT degerini enjekte eder.
+  port: Number(process.env.PORT) || 3000,
   appBaseUrl: process.env.APP_BASE_URL.replace(/\/+$/, ''),
   cacheDriver,
   databaseUrl: process.env.DATABASE_URL,
