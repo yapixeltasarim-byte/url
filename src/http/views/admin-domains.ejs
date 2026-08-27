@@ -1,0 +1,42 @@
+<%- include('partials/shell-open', { title, csrfToken, user, active: 'domains' }) %>
+    <h1><%= title %></h1>
+    <p class="muted">Yalnızca buradaki desenlerle eşleşen hedef domainlere kısaltma yapılabilir.</p>
+
+    <div class="table-wrap mt-sm">
+    <table class="data-table">
+      <thead><tr><th>Desen</th><th>Not</th><th>Durum</th><th>Eklenme</th><th></th></tr></thead>
+      <tbody>
+        <% domains.forEach((d) => { %>
+        <tr>
+          <td><code><%= d.pattern %></code></td>
+          <td><%= d.note || '—' %></td>
+          <td><span class="status-pill <%= d.isActive ? 'active' : 'inactive' %>"><%= d.isActive ? 'Aktif' : 'Pasif' %></span></td>
+          <td><%= d.createdAt.toISOString().slice(0,10) %></td>
+          <td>
+            <button type="button" class="link-button" data-api-action
+              data-method="PATCH" data-url="/api/domains/<%= d.id %>/active"
+              data-body='{"isActive": <%= !d.isActive %>}'
+              data-confirm="Emin misiniz?">
+              <%= d.isActive ? 'Pasife Al' : 'Etkinleştir' %>
+            </button>
+          </td>
+        </tr>
+        <% }) %>
+        <% if (domains.length === 0) { %>
+        <tr><td colspan="5" class="muted">Henüz domain eklenmedi.</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+    </div>
+
+    <h2>Yeni Domain</h2>
+    <div class="card">
+    <p class="form-error" data-role="form-error"></p>
+    <form data-api data-method="POST" action="/api/domains" data-redirect="/panel/admin/domains">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label>Desen <input type="text" name="pattern" required placeholder="sirket.com veya kampanya.sirket.com"></label>
+      <label>Not <input type="text" name="note" placeholder="Ana site"></label>
+      <button type="submit" class="accent">Ekle</button>
+    </form>
+    </div>
+<%- include('partials/shell-close') %>

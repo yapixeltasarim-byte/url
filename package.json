@@ -1,0 +1,44 @@
+{
+  "name": "url-kisaltma-platformu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kurumsal ic kullanim icin kapali URL kisaltma platformu",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "seed": "node prisma/seed.js",
+    "job:rollup": "node src/jobs/dailyRollup.js",
+    "job:cleanup-sessions": "node src/jobs/cleanupSessions.js",
+    "job:archive-clicks": "node src/jobs/archiveClicks.js",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.1.0",
+    "argon2": "^0.41.1",
+    "cookie": "^1.0.2",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.21.1",
+    "helmet": "^8.0.0",
+    "lru-cache": "^11.0.2",
+    "qrcode": "^1.5.4",
+    "ua-parser-js": "^1.0.39"
+  },
+  "optionalDependencies": {
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "prisma": "^6.1.0"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "argon2@0.41.1": true,
+    "prisma@6.19.3": true
+  }
+}

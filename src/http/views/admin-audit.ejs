@@ -1,0 +1,23 @@
+<%- include('partials/shell-open', { title, csrfToken, user, active: 'audit' }) %>
+    <h1><%= title %></h1>
+    <div class="table-wrap mt-sm">
+    <table class="data-table">
+      <thead><tr><th>Zaman</th><th>Kullanıcı</th><th>Eylem</th><th>Varlık</th><th>IP</th><th>Ayrıntı</th></tr></thead>
+      <tbody>
+        <% entries.forEach((e) => { %>
+        <tr>
+          <td><%= e.ts.toISOString().replace('T',' ').slice(0,19) %></td>
+          <td><%= e.user ? e.user.email : '—' %></td>
+          <td><%= e.action %></td>
+          <td><%= e.entity %><%= e.entityId ? '#' + e.entityId : '' %></td>
+          <td><%= e.ip || '—' %></td>
+          <td class="truncate"><%= e.detailJson || '' %></td>
+        </tr>
+        <% }) %>
+        <% if (entries.length === 0) { %>
+        <tr><td colspan="6" class="muted">Kayıt yok.</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+    </div>
+<%- include('partials/shell-close') %>

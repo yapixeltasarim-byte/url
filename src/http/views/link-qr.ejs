@@ -1,0 +1,27 @@
+<%- include('partials/shell-open', { title, csrfToken, user, active: 'links', narrow: true }) %>
+    <div class="page-header">
+      <h1>QR Kodu</h1>
+      <a class="button secondary" href="/panel/links/<%= link.id %>/edit">← Geri</a>
+    </div>
+
+    <p>
+      <span class="short-link">
+        <%= appBaseUrl.replace(/^https?:\/\//, '') %>/<%= link.code %>
+        <button type="button" class="link-button icon-only" data-copy="<%= appBaseUrl %>/<%= link.code %>" title="Kopyala" aria-label="Kopyala">
+          <svg class="icon" aria-hidden="true"><use href="#icon-copy"></use></svg>
+        </button>
+      </span>
+    </p>
+
+    <div class="qr-frame">
+      <canvas id="qrCanvas" class="qr-canvas"
+        data-src="/panel/links/<%= link.id %>/qr.png"
+        data-default-logo="/public/brand/logo.png"
+        data-code="<%= link.code %>"></canvas>
+      <button type="button" id="qrDownload" class="accent qr-download-btn">
+        <svg class="icon" aria-hidden="true"><use href="#icon-download"></use></svg>
+        QR'ı İndir (PNG)
+      </button>
+    </div>
+    <script src="/public/qr.js?v=<%= assetVersion %>"></script>
+<%- include('partials/shell-close') %>

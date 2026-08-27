@@ -1,0 +1,18 @@
+<%- include('partials/shell-open', { title, csrfToken, user, active: '', narrow: true }) %>
+    <h1><%= title %></h1>
+    <p class="muted"><%= user.email %> · <%= user.role %></p>
+
+    <h2>Parola Değiştir</h2>
+    <div class="card">
+    <p class="form-error" data-role="form-error"></p>
+    <form data-api data-method="PATCH" action="/api/users/me/password" data-redirect="/login">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label for="currentPassword">Mevcut parola</label>
+      <input type="password" id="currentPassword" name="currentPassword" required>
+      <label for="newPassword">Yeni parola (en az 12 karakter)</label>
+      <input type="password" id="newPassword" name="newPassword" required minlength="12">
+      <button type="submit" class="accent">Parolayı Değiştir</button>
+    </form>
+    </div>
+    <p class="helper-text">Parola değiştirildiğinde tüm oturumlarınız kapatılır ve yeniden giriş yapmanız istenir.</p>
+<%- include('partials/shell-close') %>

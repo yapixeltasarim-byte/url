@@ -1,0 +1,52 @@
+<%- include('partials/shell-open', { title, csrfToken, user, active: 'links', narrow: true }) %>
+    <div class="page-header">
+      <h1><%= title %></h1>
+      <a class="button secondary" href="/panel">← Bağlantılarım</a>
+    </div>
+    <% if (mode === 'edit') { %>
+    <p class="mt-sm">
+      <span class="short-link">
+        <%= appBaseUrl.replace(/^https?:\/\//, '') %>/<%= link.code %>
+        <button type="button" class="link-button icon-only" data-copy="<%= appBaseUrl %>/<%= link.code %>" title="Kopyala" aria-label="Kopyala">
+          <svg class="icon" aria-hidden="true"><use href="#icon-copy"></use></svg>
+        </button>
+      </span>
+      · <a href="/panel/links/<%= link.id %>/qr">QR Kodu</a>
+    </p>
+    <% } %>
+
+    <div class="card mt-sm">
+    <p class="form-error" data-role="form-error"></p>
+    <form data-api
+      data-method="<%= mode === 'create' ? 'POST' : 'PATCH' %>"
+      action="<%= mode === 'create' ? '/api/links' : `/api/links/${link.id}` %>"
+      data-redirect="/panel">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <label for="targetUrl">Hedef URL (https://)</label>
+      <input type="url" id="targetUrl" name="targetUrl" required
+        placeholder="https://sirket.com/kampanya"
+        value="<%= link ? link.targetUrl : '' %>">
+
+      <label for="title">Başlık (opsiyonel)</label>
+      <input type="text" id="title" name="title" value="<%= link && link.title ? link.title : '' %>">
+
+      <label for="campaign">Kampanya etiketi (opsiyonel)</label>
+      <input type="text" id="campaign" name="campaign" value="<%= link && link.campaign ? link.campaign : '' %>"
+        placeholder="whatsapp-agustos-2026">
+
+      <% if (mode === 'create') { %>
+      <label for="customAlias">Özel kısa kod (opsiyonel)</label>
+      <input type="text" id="customAlias" name="customAlias" pattern="[a-zA-Z0-9_-]{3,32}"
+        placeholder="orn-kampanya-2026" title="3-32 karakter; harf, rakam, tire, alt çizgi">
+      <p class="helper-text">Boş bırakılırsa rastgele güvenli bir kod üretilir.</p>
+      <% } %>
+
+      <label for="expiresAt">Son geçerlilik tarihi (opsiyonel)</label>
+      <input type="date" id="expiresAt" name="expiresAt"
+        value="<%= link && link.expiresAt ? link.expiresAt.toISOString().slice(0,10) : '' %>">
+
+      <button type="submit" class="accent"><%= mode === 'create' ? 'Oluştur' : 'Kaydet' %></button>
+    </form>
+    </div>
+<%- include('partials/shell-close') %>

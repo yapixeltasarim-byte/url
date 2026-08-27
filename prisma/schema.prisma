@@ -1,0 +1,130 @@
+// Demo: SQLite. Uretime gecerken yalnizca `provider` satiri degisir (bkz. Bolum 3.1 / Faz 4).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// role: "editor" | "manager" | "admin" (bkz. src/domain/users/permissions.js)
+// SQLite enum tipini desteklemedigi icin rol dogrulamasi uygulama katmaninda yapilir.
+model User {
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  passwordHash   String    @map("password_hash")
+  role           String    @default("editor")
+  isActive       Boolean   @default(true) @map("is_active")
+  totpSecret     String?   @map("totp_secret")
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  lockedUntil    DateTime? @map("locked_until")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  links          Link[]
+  sessions       Session[]
+  auditLogs      AuditLog[]
+  allowedDomains AllowedDomain[]
+
+  @@map("users")
+}
+
+model AllowedDomain {
+  id        Int      @id @default(autoincrement())
+  pattern   String
+  note      String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdBy Int      @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@map("allowed_domains")
+}
+
+model Link {
+  id         Int       @id @default(autoincrement())
+  code       String    @unique
+  targetUrl  String    @map("target_url")
+  title      String?
+  campaign   String?
+  createdBy  Int       @map("created_by")
+  isActive   Boolean   @default(true) @map("is_active")
+  expiresAt  DateTime? @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  creator     User          @relation(fields: [createdBy], references: [id])
+  clickEvents ClickEvent[]
+  clickDaily  ClickDaily[]
+
+  @@index([createdBy])
+  @@index([campaign])
+  @@map("links")
+}
+
+// Ham tiklama kaydi - CLICK_RETENTION_DAYS sonra arsivlenir/silinir. Analitik ekrani BUNU okumaz.
+model ClickEvent {
+  id      Int      @id @default(autoincrement())
+  linkId  Int      @map("link_id")
+  ts      DateTime @default(now())
+  ipHash  String?  @map("ip_hash")
+  country String?
+  city    String?
+  device  String?
+  os      String?
+  browser String?
+  isBot   Boolean  @default(false) @map("is_bot")
+
+  link Link @relation(fields: [linkId], references: [id])
+
+  @@index([linkId, ts])
+  @@map("click_events")
+}
+
+// Onceden hesaplanmis gunluk ozet - analitik ekranlari YALNIZCA burdan okur (bkz. Bolum 7.1).
+model ClickDaily {
+  linkId  Int      @map("link_id")
+  date    DateTime
+  country String
+  isBot   Boolean  @map("is_bot")
+  count   Int      @default(0)
+
+  link Link @relation(fields: [linkId], references: [id])
+
+  @@id([linkId, date, country, isBot])
+  @@map("click_daily")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  action     String
+  entity     String
+  entityId   String?  @map("entity_id")
+  ip         String?
+  ts         DateTime @default(now())
+  detailJson String?  @map("detail_json")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, ts])
+  @@index([entity, entityId])
+  @@map("audit_log")
+}
+
+model Session {
+  id        String   @id
+  userId    Int      @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  ip        String?
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}

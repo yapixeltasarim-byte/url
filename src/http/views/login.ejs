@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <%- include('partials/head', { title: 'Giriş', csrfToken: null }) %>
+</head>
+<body class="center-page">
+  <main class="auth-box">
+    <div class="auth-brand">🔗</div>
+    <h1>URL Kısaltma Platformu</h1>
+    <p class="muted">Kurumsal panele giriş yapın</p>
+    <% if (error) { %>
+      <p class="form-error"><%= error %></p>
+    <% } %>
+    <form method="post" action="/login">
+      <label for="email">E-posta</label>
+      <input type="email" id="email" name="email" required autofocus>
+      <label for="password">Parola</label>
+      <input type="password" id="password" name="password" required>
+      <button type="submit">Giriş Yap</button>
+    </form>
+  </main>
+</body>
+</html>

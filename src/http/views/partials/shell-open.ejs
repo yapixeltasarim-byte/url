@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <%- include('head', { title, csrfToken }) %>
+</head>
+<body>
+  <%- include('icon-sprite') %>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="mark"><svg class="icon" aria-hidden="true"><use href="#icon-link"></use></svg></span>
+        <span class="label">URL Kısaltma</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/panel" class="<%= typeof active !== 'undefined' && active === 'links' ? 'active' : '' %>" title="Bağlantılarım">
+          <svg class="icon" aria-hidden="true"><use href="#icon-link"></use></svg>
+          <span class="label">Bağlantılarım</span>
+        </a>
+        <% if (user.role === 'manager' || user.role === 'admin') { %>
+        <a href="/panel/analytics" class="<%= typeof active !== 'undefined' && active === 'analytics' ? 'active' : '' %>" title="Analitik">
+          <svg class="icon" aria-hidden="true"><use href="#icon-chart-bar"></use></svg>
+          <span class="label">Analitik</span>
+        </a>
+        <% } %>
+        <% if (user.role === 'admin') { %>
+        <div class="sidebar-section-label"><span class="label">Yönetim</span></div>
+        <a href="/panel/admin/users" class="<%= typeof active !== 'undefined' && active === 'users' ? 'active' : '' %>" title="Kullanıcılar">
+          <svg class="icon" aria-hidden="true"><use href="#icon-users"></use></svg>
+          <span class="label">Kullanıcılar</span>
+        </a>
+        <a href="/panel/admin/domains" class="<%= typeof active !== 'undefined' && active === 'domains' ? 'active' : '' %>" title="İzin Listesi">
+          <svg class="icon" aria-hidden="true"><use href="#icon-world"></use></svg>
+          <span class="label">İzin Listesi</span>
+        </a>
+        <a href="/panel/admin/audit" class="<%= typeof active !== 'undefined' && active === 'audit' ? 'active' : '' %>" title="Denetim Kaydı">
+          <svg class="icon" aria-hidden="true"><use href="#icon-history"></use></svg>
+          <span class="label">Denetim Kaydı</span>
+        </a>
+        <% } %>
+      </nav>
+      <div class="sidebar-user">
+        <a href="/panel/account" class="sidebar-user-email label"><%= user.email %></a>
+        <span class="sidebar-role-badge label"><%= user.role %></span>
+        <form method="post" action="/logout" class="inline-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="link-button" title="Çıkış Yap">
+            <svg class="icon" aria-hidden="true"><use href="#icon-logout"></use></svg>
+            <span class="label">Çıkış Yap</span>
+          </button>
+        </form>
+      </div>
+    </aside>
+    <div class="main-area">
+      <div class="content<%= typeof narrow !== 'undefined' && narrow ? ' narrow' : '' %>">

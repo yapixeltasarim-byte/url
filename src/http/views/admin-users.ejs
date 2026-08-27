@@ -1,0 +1,60 @@
+<%- include('partials/shell-open', { title, csrfToken, user, active: 'users' }) %>
+    <h1><%= title %></h1>
+
+    <div class="table-wrap mt-sm">
+    <table class="data-table">
+      <thead>
+        <tr><th>E-posta</th><th>Rol</th><th>Durum</th><th>Oluşturulma</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% users.forEach((u) => { %>
+        <tr>
+          <td><%= u.email %></td>
+          <td>
+            <form data-api data-method="PATCH" action="/api/users/<%= u.id %>/role" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <select name="role" onchange="this.form.requestSubmit()" <%= u.id === user.id ? 'disabled' : '' %>>
+                <option value="editor" <%= u.role === 'editor' ? 'selected' : '' %>>editor</option>
+                <option value="manager" <%= u.role === 'manager' ? 'selected' : '' %>>manager</option>
+                <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>admin</option>
+              </select>
+            </form>
+          </td>
+          <td><span class="status-pill <%= u.isActive ? 'active' : 'inactive' %>"><%= u.isActive ? 'Aktif' : 'Pasif' %></span></td>
+          <td><%= u.createdAt.toISOString().slice(0,10) %></td>
+          <td>
+            <% if (u.id !== user.id) { %>
+            <button type="button" class="link-button" data-api-action
+              data-method="PATCH" data-url="/api/users/<%= u.id %>/active"
+              data-body='{"isActive": <%= !u.isActive %>}'
+              data-confirm="Emin misiniz?">
+              <%= u.isActive ? 'Pasife Al' : 'Etkinleştir' %>
+            </button>
+            <% } else { %>
+              <span class="muted">(siz)</span>
+            <% } %>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+
+    <h2>Yeni Kullanıcı</h2>
+    <div class="card">
+    <p class="form-error" data-role="form-error"></p>
+    <form data-api data-method="POST" action="/api/users" data-redirect="/panel/admin/users">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label>E-posta <input type="email" name="email" required></label>
+      <label>Geçici parola <input type="password" name="password" required minlength="12"></label>
+      <label>Rol
+        <select name="role">
+          <option value="editor">editor</option>
+          <option value="manager">manager</option>
+          <option value="admin">admin</option>
+        </select>
+      </label>
+      <button type="submit" class="accent">Kullanıcı Oluştur</button>
+    </form>
+    </div>
+<%- include('partials/shell-close') %>

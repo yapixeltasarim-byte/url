@@ -1,0 +1,58 @@
+<%- include('partials/shell-open', { title, csrfToken, user, active: 'analytics' }) %>
+    <div class="page-header">
+      <h1><%= title %> <span class="muted">(son 30 gün)</span></h1>
+      <% if (canExport) { %>
+        <a class="button accent" href="/api/analytics/export.csv">CSV Dışa Aktar</a>
+      <% } %>
+    </div>
+
+    <div class="stat-cards">
+      <div class="stat-card">
+        <div class="stat-value"><%= overview.totalClicks %></div>
+        <div class="stat-label">Toplam tıklama (bot hariç)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= overview.totalBotClicks %></div>
+        <div class="stat-label">Bot/önizleme isteği</div>
+      </div>
+    </div>
+
+    <h2>Günlük tıklama</h2>
+    <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Tarih</th><th>Tıklama</th></tr></thead>
+      <tbody>
+        <% overview.timeSeries.forEach((row) => { %>
+        <tr><td><%= row.date %></td><td><%= row.count %></td></tr>
+        <% }) %>
+        <% if (overview.timeSeries.length === 0) { %>
+        <tr><td colspan="2" class="muted">Henüz veri yok.</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+    </div>
+
+    <h2>Ülkeye göre</h2>
+    <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Ülke</th><th>Tıklama</th></tr></thead>
+      <tbody>
+        <% overview.byCountry.forEach((row) => { %>
+        <tr><td><%= row.country || 'Bilinmiyor' %></td><td><%= row.count %></td></tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+
+    <h2>Kampanyaya göre</h2>
+    <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Kampanya</th><th>Tıklama</th></tr></thead>
+      <tbody>
+        <% overview.byCampaign.forEach((row) => { %>
+        <tr><td><%= row.campaign %></td><td><%= row.count %></td></tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+<%- include('partials/shell-close') %>

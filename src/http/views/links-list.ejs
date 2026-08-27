@@ -1,0 +1,81 @@
+<%- include('partials/shell-open', { title, csrfToken, user, active: 'links' }) %>
+    <div class="page-header">
+      <h1><%= title %></h1>
+      <a class="button secondary" href="/panel/links/new">Gelişmiş seçenekler</a>
+    </div>
+
+    <div class="card shorten-card">
+      <form data-api data-method="POST" action="/api/links" data-redirect="/panel" class="shorten-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="url" name="targetUrl" placeholder="Kısaltmak istediğiniz uzun URL'yi yapıştırın" required class="shorten-input">
+        <input type="text" name="customAlias" placeholder="özel kod (opsiyonel)" pattern="[a-zA-Z0-9_-]{3,32}"
+          title="3-32 karakter; harf, rakam, tire, alt çizgi" class="shorten-alias">
+        <button type="submit" class="accent shorten-submit">Kısalt</button>
+      </form>
+      <p class="form-error" data-role="form-error"></p>
+    </div>
+
+    <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Kısa Bağlantı</th>
+          <th>Başlık</th>
+          <th>Kampanya</th>
+          <% if (user.role !== 'editor') { %><th>Oluşturan</th><% } %>
+          <th>Durum</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% links.forEach((link) => { %>
+        <tr>
+          <td>
+            <span class="short-link">
+              <%= appBaseUrl.replace(/^https?:\/\//, '') %>/<%= link.code %>
+              <button type="button" class="link-button icon-only" data-copy="<%= appBaseUrl %>/<%= link.code %>" title="Kopyala" aria-label="Kopyala">
+                <svg class="icon" aria-hidden="true"><use href="#icon-copy"></use></svg>
+              </button>
+            </span>
+            <div class="target-url truncate"><%= link.targetUrl %></div>
+          </td>
+          <td><%= link.title || '—' %></td>
+          <td><%= link.campaign || '—' %></td>
+          <% if (user.role !== 'editor') { %><td><%= link.creator ? link.creator.email : '—' %></td><% } %>
+          <td><span class="status-pill <%= link.isActive ? 'active' : 'inactive' %>"><%= link.isActive ? 'Aktif' : 'Pasif' %></span></td>
+          <td class="actions">
+            <a class="icon-action" href="/panel/links/<%= link.id %>/analytics" title="Analitik" aria-label="Analitik">
+              <svg class="icon" aria-hidden="true"><use href="#icon-chart-bar"></use></svg>
+            </a>
+            <a class="icon-action" href="/panel/links/<%= link.id %>/qr" title="QR Kodu" aria-label="QR Kodu">
+              <svg class="icon" aria-hidden="true"><use href="#icon-qrcode"></use></svg>
+            </a>
+            <a class="icon-action" href="/panel/links/<%= link.id %>/edit" title="Düzenle" aria-label="Düzenle">
+              <svg class="icon" aria-hidden="true"><use href="#icon-pencil"></use></svg>
+            </a>
+            <% if (link.isActive) { %>
+              <button type="button" class="icon-action danger"
+                data-api-action data-method="PATCH"
+                data-url="/api/links/<%= link.id %>/disable"
+                data-confirm="Bu bağlantıyı pasife almak istediğinize emin misiniz?"
+                title="Pasife Al" aria-label="Pasife Al">
+                <svg class="icon" aria-hidden="true"><use href="#icon-power"></use></svg>
+              </button>
+            <% } else { %>
+              <button type="button" class="icon-action success"
+                data-api-action data-method="PATCH"
+                data-url="/api/links/<%= link.id %>/enable"
+                title="Aktife Al" aria-label="Aktife Al">
+                <svg class="icon" aria-hidden="true"><use href="#icon-player-play"></use></svg>
+              </button>
+            <% } %>
+          </td>
+        </tr>
+        <% }) %>
+        <% if (links.length === 0) { %>
+        <tr><td colspan="<%= user.role !== 'editor' ? 6 : 5 %>" class="muted">Henüz bağlantı oluşturulmadı.</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+    </div>
+<%- include('partials/shell-close') %>
