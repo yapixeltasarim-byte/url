@@ -125,6 +125,39 @@ function buildSetupRouter({ env, prisma, passwordService, auditLogger }) {
     }
   });
 
+  // Bakim amacli: istenen e-posta/parola ile (politika kontrolu ATLANARAK) bir
+  // admin hesabi olusturur/gunceller. Yalnizca SETUP_TOKEN bilen kisi kullanabilir.
+  router.get('/setup/create-admin', async (req, res) => {
+    if (!env.setupToken || req.query.token !== env.setupToken) {
+      return res.status(404).send('Not found');
+    }
+    const { email: rawEmail, password } = req.query;
+    if (!rawEmail || !password) {
+      return res.status(400).type('text/plain').send('email ve password query parametreleri zorunlu.');
+    }
+
+    try {
+      const email = String(rawEmail).toLowerCase();
+      const passwordHash = await passwordService.hash(String(password));
+      const existing = await prisma.user.findUnique({ where: { email } });
+
+      let user;
+      if (existing) {
+        user = await prisma.user.update({ where: { email }, data: { passwordHash, role: 'admin', isActive: true } });
+      } else {
+        user = await prisma.user.create({ data: { email, passwordHash, role: 'admin', isActive: true } });
+      }
+      await auditLogger.log({
+        userId: user.id, action: existing ? 'user.password_change' : 'user.create', entity: 'user', entityId: user.id,
+        detail: { via: 'setup-create-admin' },
+      });
+
+      res.type('text/plain').send(`TAMAMLANDI: ${email} artik admin (parola politikasi bu araçta atlanmistir).`);
+    } catch (err) {
+      res.status(500).type('text/plain').send(`HATA: ${err.message}`);
+    }
+  });
+
   return router;
 }
 
