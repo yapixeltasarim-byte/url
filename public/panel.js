@@ -30,6 +30,13 @@
     var body = Object.fromEntries(new FormData(form).entries());
     delete body._csrf;
 
+    // Kullanici "https://" yazmayi unutursa otomatik ekle - sistem yalnizca
+    // https kabul ediyor, http/sema eksikligini burada sessizce duzeltmek
+    // "Lutfen bir URL girin" gibi kafa karistirici tarayici hatalarini onler.
+    if (body.targetUrl && !/^https?:\/\//i.test(body.targetUrl)) {
+      body.targetUrl = 'https://' + body.targetUrl.trim();
+    }
+
     var errorEl = form.parentElement.querySelector('[data-role="form-error"]') || form.querySelector('.form-error');
 
     apiRequest(method, url, body).then(function () {

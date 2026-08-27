@@ -24,7 +24,7 @@
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
       <label for="targetUrl">Hedef URL (https://)</label>
-      <input type="url" id="targetUrl" name="targetUrl" required
+      <input type="text" inputmode="url" id="targetUrl" name="targetUrl" required
         placeholder="https://sirket.com/kampanya"
         value="<%= link ? link.targetUrl : '' %>">
 

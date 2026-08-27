@@ -7,7 +7,7 @@
     <div class="card shorten-card">
       <form data-api data-method="POST" action="/api/links" data-redirect="/panel" class="shorten-form">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <input type="url" name="targetUrl" placeholder="Kısaltmak istediğiniz uzun URL'yi yapıştırın" required class="shorten-input">
+        <input type="text" inputmode="url" name="targetUrl" placeholder="Kısaltmak istediğiniz uzun URL'yi yapıştırın (https:// yazmasan da olur)" required class="shorten-input">
         <input type="text" name="customAlias" placeholder="özel kod (opsiyonel)" pattern="[a-zA-Z0-9_-]{3,32}"
           title="3-32 karakter; harf, rakam, tire, alt çizgi" class="shorten-alias">
         <button type="submit" class="accent shorten-submit">Kısalt</button>
