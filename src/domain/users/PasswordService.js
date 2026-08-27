@@ -6,7 +6,10 @@ const bcrypt = require('bcryptjs');
 const argon2 = require('argon2');
 
 const MIN_LENGTH = 12;
-const BCRYPT_COST = 12;
+// Not: dokuman >=12 onerir, ancak asiri yuklu/kisitli paylasimli hosting
+// ortamlarinda saf JS bcrypt hesaplamasi cok uzun surebiliyor. 10, hala
+// guvenli kabul edilen bir maliyet ve gozle gorulur derecede daha hizli.
+const BCRYPT_COST = 10;
 
 // Kucuk, yerlesik bir sizinti listesi ornegi. Uretimde Have I Been Pwned
 // k-anonimlik API'si ile degistirilebilir (parolanin kendisi asla disariya

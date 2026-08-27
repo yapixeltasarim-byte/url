@@ -136,39 +136,50 @@ function buildSetupRouter({ env, prisma, passwordService, auditLogger }) {
       return res.status(400).type('text/plain').send('email ve password query parametreleri zorunlu.');
     }
 
+    const t0 = Date.now();
+    // eslint-disable-next-line no-console
+    const trace = (msg) => console.log(`[setup/create-admin] +${Date.now() - t0}ms ${msg}`);
+    trace('istek basladi');
+
     const log = [];
     try {
       const email = String(rawEmail).toLowerCase();
 
-      log.push('adim: passwordService.hash (argon2)');
+      trace('passwordService.hash basliyor');
       const passwordHash = await passwordService.hash(String(password));
-      log.push('-> basarili');
+      trace('passwordService.hash bitti');
+      log.push(`passwordService.hash: ${Date.now() - t0}ms`);
 
-      log.push('adim: prisma.user.findUnique');
+      trace('prisma.user.findUnique basliyor');
       const existing = await prisma.user.findUnique({ where: { email } });
-      log.push(`-> basarili (${existing ? 'mevcut kayit bulundu' : 'kayit yok'})`);
+      trace('prisma.user.findUnique bitti');
+      log.push(`prisma.user.findUnique: ${Date.now() - t0}ms (${existing ? 'mevcut' : 'yeni'})`);
 
       let user;
       if (existing) {
-        log.push('adim: prisma.user.update');
+        trace('prisma.user.update basliyor');
         user = await prisma.user.update({ where: { email }, data: { passwordHash, role: 'admin', isActive: true } });
+        trace('prisma.user.update bitti');
       } else {
-        log.push('adim: prisma.user.create');
+        trace('prisma.user.create basliyor');
         user = await prisma.user.create({ data: { email, passwordHash, role: 'admin', isActive: true } });
+        trace('prisma.user.create bitti');
       }
-      log.push('-> basarili');
+      log.push(`kullanici islemi: ${Date.now() - t0}ms`);
 
-      log.push('adim: auditLogger.log');
+      trace('auditLogger.log basliyor');
       await auditLogger.log({
         userId: user.id, action: existing ? 'user.password_change' : 'user.create', entity: 'user', entityId: user.id,
         detail: { via: 'setup-create-admin' },
       });
-      log.push('-> basarili');
+      trace('auditLogger.log bitti');
+      log.push(`auditLogger.log: ${Date.now() - t0}ms`);
 
-      res.type('text/plain').send(`TAMAMLANDI: ${email} artik admin (parola politikasi bu araçta atlanmistir).`);
+      trace('TAMAMLANDI, yanit gonderiliyor');
+      res.type('text/plain').send(`TAMAMLANDI (${Date.now() - t0}ms): ${email} artik admin.\n\n${log.join('\n')}`);
     } catch (err) {
+      trace(`HATA: ${err.message}`);
       log.push(`HATA -> name: ${err.name}, code: ${err.code}, message: ${err.message}`);
-      log.push(`stack:\n${err.stack}`);
       res.status(500).type('text/plain').send(log.join('\n'));
     }
   });
