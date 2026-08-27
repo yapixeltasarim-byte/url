@@ -136,25 +136,40 @@ function buildSetupRouter({ env, prisma, passwordService, auditLogger }) {
       return res.status(400).type('text/plain').send('email ve password query parametreleri zorunlu.');
     }
 
+    const log = [];
     try {
       const email = String(rawEmail).toLowerCase();
+
+      log.push('adim: passwordService.hash (argon2)');
       const passwordHash = await passwordService.hash(String(password));
+      log.push('-> basarili');
+
+      log.push('adim: prisma.user.findUnique');
       const existing = await prisma.user.findUnique({ where: { email } });
+      log.push(`-> basarili (${existing ? 'mevcut kayit bulundu' : 'kayit yok'})`);
 
       let user;
       if (existing) {
+        log.push('adim: prisma.user.update');
         user = await prisma.user.update({ where: { email }, data: { passwordHash, role: 'admin', isActive: true } });
       } else {
+        log.push('adim: prisma.user.create');
         user = await prisma.user.create({ data: { email, passwordHash, role: 'admin', isActive: true } });
       }
+      log.push('-> basarili');
+
+      log.push('adim: auditLogger.log');
       await auditLogger.log({
         userId: user.id, action: existing ? 'user.password_change' : 'user.create', entity: 'user', entityId: user.id,
         detail: { via: 'setup-create-admin' },
       });
+      log.push('-> basarili');
 
       res.type('text/plain').send(`TAMAMLANDI: ${email} artik admin (parola politikasi bu araçta atlanmistir).`);
     } catch (err) {
-      res.status(500).type('text/plain').send(`HATA: ${err.message}`);
+      log.push(`HATA -> name: ${err.name}, code: ${err.code}, message: ${err.message}`);
+      log.push(`stack:\n${err.stack}`);
+      res.status(500).type('text/plain').send(log.join('\n'));
     }
   });
 
