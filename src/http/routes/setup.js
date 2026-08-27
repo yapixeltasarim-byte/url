@@ -5,6 +5,20 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 /**
+ * Bazi izole hosting ortamlarinda calisan node sureci PATH'inde npx/npm
+ * bulunmayabilir (spawnSync ENOENT). npx'e hic ihtiyac duymadan, ayni
+ * node calistirilabiliriyle (process.execPath) prisma CLI'nin gercek
+ * dosya yolunu bulup dogrudan calistiriyoruz.
+ */
+function resolvePrismaCli() {
+  const pkgJsonPath = require.resolve('prisma/package.json');
+  // eslint-disable-next-line global-require, import/no-dynamic-require
+  const pkg = require(pkgJsonPath);
+  const binField = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin.prisma;
+  return path.join(path.dirname(pkgJsonPath), binField);
+}
+
+/**
  * Terminal/SSH erisimi olmayan paylasimli hosting ortamlari icin tek seferlik
  * kurulum ucu: migrate deploy calistirir + ilk admin hesabini olusturur.
  * SETUP_TOKEN ortam degiskeni tanimli degilse bu uc nokta tamamen kapalidir.
@@ -20,12 +34,14 @@ function buildSetupRouter({ env, prisma, passwordService, auditLogger }) {
 
     const log = [];
     try {
-      log.push('== npx prisma migrate deploy ==');
+      log.push('== prisma migrate deploy ==');
       const projectRoot = path.join(__dirname, '..', '..', '..');
-      const output = execFileSync('npx', ['prisma', 'migrate', 'deploy'], {
+      const prismaCli = resolvePrismaCli();
+      const output = execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
         cwd: projectRoot,
         encoding: 'utf8',
         timeout: 60_000,
+        env: process.env,
       });
       log.push(output);
 
