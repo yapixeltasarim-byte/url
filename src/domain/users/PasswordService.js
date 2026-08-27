@@ -1,8 +1,12 @@
 'use strict';
 
+const bcrypt = require('bcryptjs');
+// Sadece ESKI argon2 hash'lerini dogrulayabilmek icin tutulur (bkz. asagidaki not).
+// Yeni parolalar artik argon2 ile hic hashlenmez.
 const argon2 = require('argon2');
 
 const MIN_LENGTH = 12;
+const BCRYPT_COST = 12;
 
 // Kucuk, yerlesik bir sizinti listesi ornegi. Uretimde Have I Been Pwned
 // k-anonimlik API'si ile degistirilebilir (parolanin kendisi asla disariya
@@ -26,13 +30,20 @@ class PasswordService {
   }
 
   async hash(password) {
-    // argon2id: hem yan-kanal hem GPU/ASIC saldirilarina karsi dengeli - MD5/SHA ailesi kesinlikle kullanilmaz.
-    return argon2.hash(password, { type: argon2.argon2id });
+    // bcrypt (maliyet >= 12) - dokumanin belirttigi alternatif (Bolum 4.4).
+    // argon2 yerine tercih edildi: argon2'nin native/thread gerektiren yapisi
+    // bazi kisitli paylasimli hosting ortamlarinda "Threading failure" ile
+    // calismiyor; bcryptjs saf JavaScript'tir, hicbir native/thread bagimliligi yoktur.
+    return bcrypt.hash(password, BCRYPT_COST);
   }
 
   async verify(hash, password) {
     try {
-      return await argon2.verify(hash, password);
+      if (hash.startsWith('$argon2')) {
+        // Gecis donemi: argon2 ile olusturulmus eski hash'ler hala dogrulanabilir.
+        return await argon2.verify(hash, password);
+      }
+      return await bcrypt.compare(password, hash);
     } catch {
       return false;
     }
