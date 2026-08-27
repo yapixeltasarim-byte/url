@@ -74,4 +74,7 @@ module.exports = {
   sinkFlushIntervalMs: Number(process.env.SINK_FLUSH_INTERVAL_MS || 5000),
   seedAdminEmail: process.env.SEED_ADMIN_EMAIL || null,
   seedAdminPassword: process.env.SEED_ADMIN_PASSWORD || null,
+  // Terminal/SSH erisimi olmayan paylasimli hosting ortamlarinda tek seferlik
+  // /setup/bootstrap ucunu acmak icin kullanilir. Bos ise uc nokta calismaz.
+  setupToken: process.env.SETUP_TOKEN || null,
 };

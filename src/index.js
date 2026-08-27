@@ -19,6 +19,7 @@ const DomainService = require('./domain/links/DomainService');
 const ClickRecorder = require('./domain/analytics/ClickRecorder');
 const { AnalyticsService } = require('./domain/analytics/AnalyticsService');
 
+const { buildSetupRouter } = require('./http/routes/setup');
 const { buildAuthRouter } = require('./http/routes/auth');
 const { buildRedirectRouter } = require('./http/routes/redirect');
 const { buildPanelRouter } = require('./http/routes/panel');
@@ -62,6 +63,10 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public'), {
   maxAge: env.isProduction ? '1h' : 0,
   etag: true,
 }));
+
+// Terminal/SSH erisimi olmayan hosting icin tek seferlik kurulum ucu - SETUP_TOKEN
+// tanimli degilse tamamen kapali. Body parser/oturum gerektirmez, en once mont edilir.
+app.use('/', buildSetupRouter({ env, prisma, passwordService, auditLogger }));
 
 app.use(express.json({ limit: '20kb' }));
 app.use(express.urlencoded({ extended: false, limit: '20kb' }));
