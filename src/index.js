@@ -52,9 +52,11 @@ app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'http', 'views'));
 app.locals.appBaseUrl = env.appBaseUrl;
-// Statik dosya linklerine eklenir (?v=...) - surec her yeniden basladiginda degisir,
-// boylece tarayici onbellegi CSS/JS guncellemelerini asla gizlemez.
-app.locals.assetVersion = env.isProduction ? require('../package.json').version : Date.now();
+// Statik dosya linklerine eklenir (?v=...). package.json surumu SABIT kalip
+// hicbir deploy'da degismedigi icin (bkz. gecmis onbellek sorunu) artik her
+// ortamda surec basi zaman damgasi kullanilir - her yeniden baslatmada/deployda
+// otomatik degisir, tarayici onbellegi CSS/JS guncellemelerini asla gizlemez.
+app.locals.assetVersion = Date.now();
 
 app.use(securityHeaders());
 // Gelistirmede agresif tarayici onbellegi CSS/JS degisikliklerini gizler;
