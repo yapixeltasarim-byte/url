@@ -37,7 +37,7 @@ class CodeGenerator {
       // eslint-disable-next-line no-await-in-loop
       if (!(await exists(code))) return code;
     }
-    throw new Error('Benzersiz kisa kod uretilemedi (5 deneme basarisiz).');
+    throw new Error('Benzersiz kısa kod üretilemedi (5 deneme başarısız).');
   }
 }
 

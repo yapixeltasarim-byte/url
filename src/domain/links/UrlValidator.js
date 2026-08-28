@@ -23,7 +23,7 @@ class UrlValidator {
 
     // Ham metinde @ varsa dogrudan reddedilir - https://sirket.com@kotu.site tuzagi.
     if (rawUrl.includes('@')) {
-      throw new ValidationError('at_symbol', 'URL icinde @ isareti bulunamaz.');
+      throw new ValidationError('at_symbol', 'URL içinde @ işareti bulunamaz.');
     }
 
     let url;
@@ -32,24 +32,24 @@ class UrlValidator {
       // hostname zaten donusturulmus degeri verir - elle donusum yazilmaz.
       url = new URL(rawUrl.trim());
     } catch {
-      throw new ValidationError('invalid_url', 'Gecerli bir URL degil.');
+      throw new ValidationError('invalid_url', 'Geçerli bir URL değil.');
     }
 
     // http, javascript:, data:, file: burada elenir - yalnizca https gecer.
     if (url.protocol !== 'https:') {
-      throw new ValidationError('protocol', 'Yalnizca https protokolu kabul edilir.');
+      throw new ValidationError('protocol', 'Yalnızca https protokolü kabul edilir.');
     }
     if (url.port) {
       throw new ValidationError('port', 'Port belirtilen URL kabul edilmez.');
     }
     if (url.username || url.password) {
-      throw new ValidationError('credentials', 'Kimlik bilgisi (kullanici:parola@) iceren URL kabul edilmez.');
+      throw new ValidationError('credentials', 'Kimlik bilgisi (kullanıcı:parola@) içeren URL kabul edilmez.');
     }
 
     const host = url.hostname.toLowerCase().replace(/\.$/, '');
     const allowed = await this.isHostAllowed(host);
     if (!allowed) {
-      throw new ValidationError('not_allowed', `${host} hedef domain izin listesinde degil.`);
+      throw new ValidationError('not_allowed', `${host} hedef domain izin listesinde değil.`);
     }
 
     return url.toString();

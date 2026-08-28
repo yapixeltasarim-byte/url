@@ -98,7 +98,7 @@ function buildSetupRouter({ env, prisma, passwordService, auditLogger }) {
 
       log.push('\n== ilk admin hesabi ==');
       if (!env.seedAdminEmail || !env.seedAdminPassword) {
-        log.push('SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD tanimli degil, admin olusturulmadi.');
+        log.push('SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD tanımlı değil, admin oluşturulmadı.');
       } else {
         const email = env.seedAdminEmail.toLowerCase();
         const existing = await prisma.user.findUnique({ where: { email } });
@@ -133,7 +133,7 @@ function buildSetupRouter({ env, prisma, passwordService, auditLogger }) {
     }
     const { email: rawEmail, password } = req.query;
     if (!rawEmail || !password) {
-      return res.status(400).type('text/plain').send('email ve password query parametreleri zorunlu.');
+      return res.status(400).type('text/plain').send('email ve password query parametreleri zorunludur.');
     }
 
     const t0 = Date.now();

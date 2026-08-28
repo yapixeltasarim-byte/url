@@ -33,7 +33,7 @@ function verifyCsrf(req, res, next) {
 
   if (!valid) {
     if (req.originalUrl.startsWith('/api/')) return res.status(403).json({ error: 'csrf_failed' });
-    return res.status(403).render('error', { message: 'Islem dogrulanamadi, sayfayi yenileyip tekrar deneyin.' });
+    return res.status(403).render('error', { message: 'İşlem doğrulanamadı, sayfayı yenileyip tekrar deneyin.' });
   }
   next();
 }

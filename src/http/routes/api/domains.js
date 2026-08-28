@@ -22,7 +22,7 @@ function buildDomainsApiRouter({ domainService }) {
       res.status(201).json({ domain });
     } catch (err) {
       if (err.code === 'invalid_pattern') return res.status(400).json({ error: err.code, message: err.message });
-      if (err.code === 'P2002') return res.status(409).json({ error: 'duplicate_pattern', message: 'Bu desen zaten kayitli.' });
+      if (err.code === 'P2002') return res.status(409).json({ error: 'duplicate_pattern', message: 'Bu desen zaten kayıtlı.' });
       next(err);
     }
   });

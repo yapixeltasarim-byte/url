@@ -17,7 +17,7 @@ function rateLimit(limiter, { keyFn, limit, windowSeconds }) {
         if (req.originalUrl.startsWith('/api/')) {
           return res.status(429).json({ error: 'rate_limited', retryAfter: result.resetSeconds });
         }
-        return res.status(429).type('text/plain').send('Cok fazla istek. Lutfen biraz sonra tekrar deneyin.');
+        return res.status(429).type('text/plain').send('Çok fazla istek. Lütfen biraz sonra tekrar deneyin.');
       }
       next();
     } catch (err) {

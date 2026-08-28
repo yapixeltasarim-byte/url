@@ -27,13 +27,13 @@ function fail(message) {
 
 for (const key of REQUIRED) {
   if (!process.env[key] || String(process.env[key]).trim() === '') {
-    fail(`Zorunlu ortam degiskeni eksik: ${key}. .env.example dosyasina bakin.`);
+    fail(`Zorunlu ortam değişkeni eksik: ${key}. .env.example dosyasına bakın.`);
   }
 }
 
 const cacheDriver = process.env.CACHE_DRIVER;
 if (!['memory', 'redis'].includes(cacheDriver)) {
-  fail(`CACHE_DRIVER 'memory' veya 'redis' olmali, alinan: ${cacheDriver}`);
+  fail(`CACHE_DRIVER 'memory' veya 'redis' olmalı, alınan: ${cacheDriver}`);
 }
 if (cacheDriver === 'redis' && !process.env.REDIS_URL) {
   fail('CACHE_DRIVER=redis iken REDIS_URL zorunludur.');
@@ -41,11 +41,11 @@ if (cacheDriver === 'redis' && !process.env.REDIS_URL) {
 
 for (const key of ['SESSION_SECRET', 'CSRF_SECRET', 'IP_HASH_SALT']) {
   if (process.env[key].length < MIN_SECRET_LENGTH) {
-    fail(`${key} en az ${MIN_SECRET_LENGTH} karakter olmali (guclu, rastgele bir deger uretin).`);
+    fail(`${key} en az ${MIN_SECRET_LENGTH} karakter olmalı (güçlü, rastgele bir değer üretin).`);
   }
 }
 if (process.env.SESSION_SECRET === process.env.CSRF_SECRET) {
-  fail('SESSION_SECRET ve CSRF_SECRET ayni olamaz.');
+  fail('SESSION_SECRET ve CSRF_SECRET aynı olamaz.');
 }
 
 const nodeEnv = process.env.NODE_ENV;
@@ -53,7 +53,7 @@ const isProduction = nodeEnv === 'production';
 const cookieSecure = isProduction ? true : process.env.COOKIE_SECURE === 'true';
 
 if (isProduction && !cookieSecure) {
-  fail('Uretimde COOKIE_SECURE=false kabul edilmez; oturum cerezi HTTPS uzerinden korunmalidir.');
+  fail('Üretimde COOKIE_SECURE=false kabul edilmez; oturum çerezi HTTPS üzerinden korunmalıdır.');
 }
 
 module.exports = {

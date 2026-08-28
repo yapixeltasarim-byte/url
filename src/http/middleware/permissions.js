@@ -4,7 +4,7 @@ const { can, isOwnScoped, hasBlanketAccess } = require('../../domain/users/permi
 
 function deny(req, res) {
   if (req.originalUrl.startsWith('/api/')) return res.status(403).json({ error: 'forbidden' });
-  return res.status(403).render('error', { message: 'Bu islem icin yetkiniz yok.' });
+  return res.status(403).render('error', { message: 'Bu işlem için yetkiniz yok.' });
 }
 
 function unauthorized(req, res) {

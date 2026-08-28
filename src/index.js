@@ -109,12 +109,12 @@ app.use((err, req, res, next) => {
 
 const server = app.listen(env.port, () => {
   // eslint-disable-next-line no-console
-  console.log(`[index] ${env.nodeEnv} ortaminda dinleniyor: ${env.appBaseUrl} (port ${env.port})`);
+  console.log(`[index] ${env.nodeEnv} ortamında dinleniyor: ${env.appBaseUrl} (port ${env.port})`);
 });
 
 async function shutdown(signal) {
   // eslint-disable-next-line no-console
-  console.log(`[index] ${signal} alindi, kapatiliyor...`);
+  console.log(`[index] ${signal} alındı, kapatılıyor...`);
   server.close();
   await sink.stop();
   await prisma.$disconnect();

@@ -24,10 +24,10 @@ class PasswordService {
   validatePolicy(password) {
     const errors = [];
     if (!password || password.length < MIN_LENGTH) {
-      errors.push(`Parola en az ${MIN_LENGTH} karakter olmali.`);
+      errors.push(`Parola en az ${MIN_LENGTH} karakter olmalı.`);
     }
     if (COMMON_PASSWORDS.has(password)) {
-      errors.push('Bu parola bilinen sizinti listelerinde yer aliyor, baska bir parola secin.');
+      errors.push('Bu parola bilinen sızıntı listelerinde yer alıyor, başka bir parola seçin.');
     }
     return errors;
   }

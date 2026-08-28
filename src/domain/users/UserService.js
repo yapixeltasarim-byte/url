@@ -25,10 +25,10 @@ class UserService {
 
     if (!user) {
       // Kullanici yok/var farkini disari sizdirma - ayni hata mesaji donulur.
-      throw new AuthError('invalid_credentials', 'E-posta veya parola hatali.');
+      throw new AuthError('invalid_credentials', 'E-posta veya parola hatalı.');
     }
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new AuthError('locked', `Hesap gecici olarak kilitli. ${user.lockedUntil.toISOString()} sonrasi tekrar deneyin.`);
+      throw new AuthError('locked', `Hesap geçici olarak kilitli. ${user.lockedUntil.toISOString()} sonrası tekrar deneyin.`);
     }
     if (!user.isActive) {
       throw new AuthError('inactive', 'Hesap pasif durumda.');
@@ -47,7 +47,7 @@ class UserService {
       await this.auditLogger.log({
         userId: user.id, action: 'login.failed', entity: 'user', entityId: user.id, ip,
       });
-      throw new AuthError('invalid_credentials', 'E-posta veya parola hatali.');
+      throw new AuthError('invalid_credentials', 'E-posta veya parola hatalı.');
     }
 
     await this.prisma.user.update({
@@ -116,7 +116,7 @@ class UserService {
   async changeOwnPassword(userId, currentPassword, newPassword) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const valid = await this.passwordService.verify(user.passwordHash, currentPassword || '');
-    if (!valid) return { success: false, code: 'invalid_current', message: 'Mevcut parola hatali.' };
+    if (!valid) return { success: false, code: 'invalid_current', message: 'Mevcut parola hatalı.' };
 
     const policyErrors = this.passwordService.validatePolicy(newPassword);
     if (policyErrors.length > 0) return { success: false, code: 'weak_password', message: policyErrors.join(' ') };
@@ -136,7 +136,7 @@ class UserService {
     const activeAdmins = await this.prisma.user.count({ where: { role: 'admin', isActive: true } });
     const target = await this.prisma.user.findUnique({ where: { id: userId } });
     if (target?.role === 'admin' && target.isActive && activeAdmins <= 1) {
-      throw new LastAdminError('Sistemde en az bir aktif admin bulunmalidir; son admin pasife alinamaz.');
+      throw new LastAdminError('Sistemde en az bir aktif admin bulunmalıdır; son admin pasife alınamaz.');
     }
   }
 
