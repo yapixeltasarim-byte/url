@@ -1,8 +1,21 @@
 'use strict';
 
 const UAParser = require('ua-parser-js');
+const geoip = require('geoip-lite');
 const { isBotUserAgent } = require('./BotDetector');
 const { hashIp } = require('./ipHash');
+
+/**
+ * Cloudflare arkasinda degilken (bkz. asagidaki not) yerel bir IP->ulke
+ * veritabanindan (geoip-lite) bakar. Ag istegi yapmaz, disk/bellek uzerinden
+ * calisir - ek surec/thread acmaz. Ozel/yerel IP araliklarinda (127.x, 192.168.x
+ * vb.) sonuc bulunamaz, bu normaldir.
+ */
+function resolveCountry(req) {
+  if (req.headers['cf-ipcountry']) return req.headers['cf-ipcountry'];
+  const geo = req.ip ? geoip.lookup(req.ip) : null;
+  return geo?.country || null;
+}
 
 class ClickRecorder {
   constructor(prisma, ipHashSalt) {
@@ -21,8 +34,7 @@ class ClickRecorder {
       linkId,
       ts: new Date().toISOString(),
       ipHash: hashIp(req.ip, this.ipHashSalt),
-      // Uretimde Cloudflare bu basligi otomatik ekler; demo/yerel ortamda bos kalir.
-      country: req.headers['cf-ipcountry'] || null,
+      country: resolveCountry(req),
       city: null,
       device: parsed.device.type || 'desktop',
       os: parsed.os.name || null,
