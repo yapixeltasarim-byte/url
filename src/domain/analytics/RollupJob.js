@@ -49,6 +49,17 @@ class RollupJob {
 
     return { date: dayStart, linksProcessed: buckets.size, eventsRead: events.length };
   }
+
+  /**
+   * Bugunu ve dunu ozetler. Bugun icin sayim her cagrida SIFIRDAN yeniden
+   * hesaplanir (upsert'teki update:{count} artan degil, mutlak degerdir),
+   * bu yuzden gun icinde tekrar tekrar cagirmak tamamen guvenlidir.
+   */
+  async runForTodayAndYesterday() {
+    const today = await this.runForDate(new Date());
+    const yesterday = await this.runForDate(new Date(Date.now() - 24 * 3600_000));
+    return { today, yesterday };
+  }
 }
 
 module.exports = RollupJob;

@@ -83,7 +83,7 @@ async function applyPendingMigrations(prisma, log) {
  * SETUP_TOKEN ortam degiskeni tanimli degilse bu uc nokta tamamen kapalidir.
  * Kullanildiktan sonra SETUP_TOKEN'i ortam degiskenlerinden kaldirmak guvenlidir.
  */
-function buildSetupRouter({ env, prisma, passwordService, auditLogger }) {
+function buildSetupRouter({ env, prisma, passwordService, auditLogger, rollupJob }) {
   const router = express.Router();
 
   router.get('/setup/bootstrap', async (req, res) => {
@@ -181,6 +181,21 @@ function buildSetupRouter({ env, prisma, passwordService, auditLogger }) {
       trace(`HATA: ${err.message}`);
       log.push(`HATA -> name: ${err.name}, code: ${err.code}, message: ${err.message}`);
       res.status(500).type('text/plain').send(log.join('\n'));
+    }
+  });
+
+  // Bakim amacli: click_events -> click_daily ozetlemesini hemen tetikler.
+  // Uygulama zaten bunu 15 dakikada bir kendiliginden yapar (bkz. src/index.js);
+  // bu uc nokta yalnizca beklemeden hemen dogrulamak icindir.
+  router.get('/setup/run-rollup', async (req, res) => {
+    if (!env.setupToken || req.query.token !== env.setupToken) {
+      return res.status(404).send('Not found');
+    }
+    try {
+      const result = await rollupJob.runForTodayAndYesterday();
+      res.type('text/plain').send(`TAMAMLANDI\n${JSON.stringify(result, null, 2)}`);
+    } catch (err) {
+      res.status(500).type('text/plain').send(`HATA: ${err.message}`);
     }
   });
 

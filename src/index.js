@@ -18,6 +18,7 @@ const { LinkService } = require('./domain/links/LinkService');
 const DomainService = require('./domain/links/DomainService');
 const ClickRecorder = require('./domain/analytics/ClickRecorder');
 const { AnalyticsService } = require('./domain/analytics/AnalyticsService');
+const RollupJob = require('./domain/analytics/RollupJob');
 
 const { buildSetupRouter } = require('./http/routes/setup');
 const { buildAuthRouter } = require('./http/routes/auth');
@@ -45,6 +46,24 @@ const analyticsService = new AnalyticsService(prisma);
 // EventSink tuketicisi: tampondaki tiklama olaylarini periyodik olarak veritabanina yazar.
 sink.registerConsumer((events) => clickRecorder.persist(events));
 
+// click_events -> click_daily ozetlemesi haricen bir cron'a birakilmaz (bkz. Bolum 7.1);
+// paylasimli hostingde harici cron kurulamayabilir/unutulabilir - bu durumda "Genel
+// Analitik" ekrani hicbir zaman guncellenmez. Bunun yerine surec kendi icinde
+// periyodik olarak calisir. runForDate'teki upsert mutlak deger yazdigi icin
+// (artan degil) bugunu tekrar tekrar yeniden hesaplamak tamamen guvenlidir.
+const rollupJob = new RollupJob(prisma);
+async function runRollupSafely() {
+  try {
+    await rollupJob.runForTodayAndYesterday();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[rollup] basarisiz:', err.message);
+  }
+}
+runRollupSafely();
+const rollupInterval = setInterval(runRollupSafely, 15 * 60_000);
+rollupInterval.unref?.();
+
 const app = express();
 
 // Cloudflare/ters proxy arkasinda gercek istemci IP'sini almak icin (bkz. Bolum 3.1 Faz 4).
@@ -68,7 +87,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public'), {
 
 // Terminal/SSH erisimi olmayan hosting icin tek seferlik kurulum ucu - SETUP_TOKEN
 // tanimli degilse tamamen kapali. Body parser/oturum gerektirmez, en once mont edilir.
-app.use('/', buildSetupRouter({ env, prisma, passwordService, auditLogger }));
+app.use('/', buildSetupRouter({ env, prisma, passwordService, auditLogger, rollupJob }));
 
 app.use(express.json({ limit: '20kb' }));
 app.use(express.urlencoded({ extended: false, limit: '20kb' }));
@@ -118,6 +137,7 @@ async function shutdown(signal) {
   // eslint-disable-next-line no-console
   console.log(`[index] ${signal} alındı, kapatılıyor...`);
   server.close();
+  clearInterval(rollupInterval);
   await sink.stop();
   await prisma.$disconnect();
   process.exit(0);
