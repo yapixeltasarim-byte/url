@@ -1,20 +1,19 @@
 'use strict';
 
 const UAParser = require('ua-parser-js');
-const geoip = require('geoip-lite');
 const { isBotUserAgent } = require('./BotDetector');
 const { hashIp } = require('./ipHash');
 
 /**
- * Cloudflare arkasinda degilken (bkz. asagidaki not) yerel bir IP->ulke
- * veritabanindan (geoip-lite) bakar. Ag istegi yapmaz, disk/bellek uzerinden
- * calisir - ek surec/thread acmaz. Ozel/yerel IP araliklarinda (127.x, 192.168.x
- * vb.) sonuc bulunamaz, bu normaldir.
+ * GERI ALINDI: geoip-lite'in veri dosyasi 111MB, yuklendiginde ~105MB RAM
+ * ekliyor. Bu hesabin zaten kisitli kaynaklariyla (bkz. "islem sayisi limiti"
+ * ve 504 sorunlari) bir araya gelince uygulamanin hic baslamamasina (504)
+ * yol acti. Ulke bilgisi icin once daha hafif bir alternatif (kucuk/yalnizca
+ * ulke duzeyinde bir veritabani ya da Cloudflare) degerlendirilmeli.
  */
 function resolveCountry(req) {
-  if (req.headers['cf-ipcountry']) return req.headers['cf-ipcountry'];
-  const geo = req.ip ? geoip.lookup(req.ip) : null;
-  return geo?.country || null;
+  // Uretimde Cloudflare bu basligi otomatik ekler; kullanilmiyorsa bos kalir.
+  return req.headers['cf-ipcountry'] || null;
 }
 
 class ClickRecorder {
