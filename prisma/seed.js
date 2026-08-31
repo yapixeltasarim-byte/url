@@ -2,7 +2,7 @@
 
 require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
-const argon2 = require('argon2');
+const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
@@ -27,7 +27,7 @@ async function main() {
     return;
   }
 
-  const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+  const passwordHash = await bcrypt.hash(password, 10);
   const admin = await prisma.user.create({
     data: { email, passwordHash, role: 'admin', isActive: true },
   });

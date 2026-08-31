@@ -1,9 +1,6 @@
 'use strict';
 
 const bcrypt = require('bcryptjs');
-// Sadece ESKI argon2 hash'lerini dogrulayabilmek icin tutulur (bkz. asagidaki not).
-// Yeni parolalar artik argon2 ile hic hashlenmez.
-const argon2 = require('argon2');
 
 const MIN_LENGTH = 12;
 // Not: dokuman >=12 onerir, ancak asiri yuklu/kisitli paylasimli hosting
@@ -43,8 +40,11 @@ class PasswordService {
   async verify(hash, password) {
     try {
       if (hash.startsWith('$argon2')) {
-        // Gecis donemi: argon2 ile olusturulmus eski hash'ler hala dogrulanabilir.
-        return await argon2.verify(hash, password);
+        // argon2 native modulu bu sunucuda "Threading failure" cikardigi ve
+        // artik hicbir aktif hesap argon2 hash'i tasimadigi icin (hepsi
+        // bcrypt'e cevrildi) modul projeden tamamen kaldirildi. Eski bir
+        // hash rastlanirsa reddedilir - o hesap yeniden olusturulmalidir.
+        return false;
       }
       return await bcrypt.compare(password, hash);
     } catch {
