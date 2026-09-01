@@ -5,6 +5,8 @@ node_modules/
 *.db-wal
 *.db-shm
 *.pid
+boot.log
+data/boot.log
 dist/
 logs/
 *.log

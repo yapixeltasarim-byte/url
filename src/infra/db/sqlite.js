@@ -11,13 +11,11 @@ let Database;
 try {
   Database = require('better-sqlite3');
 } catch (err) {
-  // eslint-disable-next-line no-console
-  console.error('[db] better-sqlite3 native modulu yuklenemedi.');
-  // eslint-disable-next-line no-console
-  console.error('[db] Sunucuda uygulama kokunde `npm install` calistirin (install script izinli olmali). Mac/Windows node_modules Linux Hostinger\'da calismaz.');
-  // eslint-disable-next-line no-console
-  console.error(`[db] ${err.message}`);
-  process.exit(1);
+  const wrapped = new Error(
+    `better-sqlite3 native modulu yuklenemedi: ${err.message}. Sunucuda uygulama kokunde npm install (install script acik) calismali; Mac node_modules Linux'ta calismaz.`,
+  );
+  wrapped.code = 'SQLITE_NATIVE';
+  throw wrapped;
 }
 
 const { applyMigrations } = require('./migrate');
@@ -52,13 +50,17 @@ function configurePragmas(db) {
 
 function openDatabase(databaseUrl) {
   const filePath = resolveFilePath(databaseUrl);
-  if (filePath !== ':memory:') {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  try {
+    if (filePath !== ':memory:') {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    }
+    const db = new Database(filePath);
+    configurePragmas(db);
+    applyMigrations(db);
+    return db;
+  } catch (err) {
+    throw new Error(`SQLite acilamadi (${filePath}): ${err.message}`);
   }
-  const db = new Database(filePath);
-  configurePragmas(db);
-  applyMigrations(db);
-  return db;
 }
 
 const globalForSqlite = globalThis;

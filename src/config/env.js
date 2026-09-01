@@ -2,10 +2,16 @@
 
 const path = require('path');
 
-// cwd Hostinger/Passenger'da bazen uygulama koku disina dusebilir;
-// .env her zaman proje kokunden okunur. Panelden enjekte edilen degiskenler
-// zaten process.env'de oldugu icin dotenv onlarin ustune yazmaz.
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+// cwd Hostinger/Passenger'da bazen uygulama koku disina dusebilir.
+// Panelden enjekte edilen degiskenler zaten process.env'de oldugu icin
+// dotenv onlarin ustune yazmaz. .env gitte yoktur.
+const dotenv = require('dotenv');
+for (const file of [
+  path.join(__dirname, '..', '..', '.env'),
+  path.join(process.cwd(), '.env'),
+]) {
+  dotenv.config({ path: file });
+}
 
 // PORT kasitli olarak burada degil - cPanel/Plesk Node.js Selector (Passenger) surece
 // PORT'u kendisi enjekte eder; bunu zorunlu sayip bos deger gorunce surec kapanirsa
@@ -23,11 +29,11 @@ const REQUIRED = [
 const MIN_SECRET_LENGTH = 32;
 
 function fail(message) {
-  // Eksik/zayif yapilandirmayla acilan bir uygulama, guvenlik varsayimlarini sessizce ihlal eder.
-  // Bu yuzden .env eksikse veya zayifsa surec hic baslamaz.
-  // eslint-disable-next-line no-console
-  console.error(`[env] ${message}`);
-  process.exit(1);
+  // process.exit(1) listen()'dan once 503 uretir (Passenger/Hostinger).
+  // Hatayi firlat; index.js yakalayip gercek mesaji gosterir.
+  const err = new Error(message);
+  err.code = 'ENV_INVALID';
+  throw err;
 }
 
 for (const key of REQUIRED) {
