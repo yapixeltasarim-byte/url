@@ -20,13 +20,13 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "11.10.0",
     "cookie": "^1.0.2",
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",
     "express": "^4.21.1",
     "helmet": "^8.0.0",
-    "lru-cache": "^11.0.2",
+    "lru-cache": "10.4.3",
     "qrcode": "^1.5.4",
     "ua-parser-js": "^1.0.39"
   },
@@ -37,6 +37,6 @@
     "better-sqlite3": true
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18.20.0"
   }
 }
