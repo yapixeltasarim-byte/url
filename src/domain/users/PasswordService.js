@@ -2,10 +2,7 @@
 
 const bcrypt = require('bcryptjs');
 
-const MIN_LENGTH = 12;
-// Not: dokuman >=12 onerir, ancak asiri yuklu/kisitli paylasimli hosting
-// ortamlarinda saf JS bcrypt hesaplamasi cok uzun surebiliyor. 10, hala
-// guvenli kabul edilen bir maliyet ve gozle gorulur derecede daha hizli.
+// Saf JS bcrypt; native/thread yok. Maliyet 10 paylasimli hostingde makul surede biter.
 const BCRYPT_COST = 10;
 
 // Kucuk, yerlesik bir sizinti listesi ornegi. Uretimde Have I Been Pwned
@@ -20,8 +17,8 @@ class PasswordService {
   /** @returns {string[]} bos dizi = gecerli, aksi halde hata mesajlari */
   validatePolicy(password) {
     const errors = [];
-    if (!password || password.length < MIN_LENGTH) {
-      errors.push(`Parola en az ${MIN_LENGTH} karakter olmalı.`);
+    if (!password) {
+      errors.push('Parola zorunludur.');
     }
     if (COMMON_PASSWORDS.has(password)) {
       errors.push('Bu parola bilinen sızıntı listelerinde yer alıyor, başka bir parola seçin.');

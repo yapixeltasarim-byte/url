@@ -83,9 +83,6 @@ async function buildApp() {
   if (seed.created) {
     // eslint-disable-next-line no-console
     console.log(`[seed] ilk admin olusturuldu: ${seed.email}`);
-  } else if (seed.reason === 'weak_password') {
-    // eslint-disable-next-line no-console
-    console.error('[seed] SEED_ADMIN_PASSWORD en az 12 karakter olmali, admin olusturulmadi.');
   } else if (seed.reason === 'no_seed') {
     // eslint-disable-next-line no-console
     console.error('[seed] users bos; SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD tanimli degil.');

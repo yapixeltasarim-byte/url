@@ -14,7 +14,6 @@ async function ensureFirstAdmin(db, env, passwordService, auditLogger) {
   const email = (env.seedAdminEmail || '').trim().toLowerCase();
   const password = env.seedAdminPassword;
   if (!email || !password) return { created: false, reason: 'no_seed' };
-  if (String(password).length < 12) return { created: false, reason: 'weak_password' };
 
   const passwordHash = await passwordService.hash(password);
   const ts = nowIso();

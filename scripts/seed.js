@@ -14,12 +14,6 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  if (password.length < 12) {
-    console.error('[seed] SEED_ADMIN_PASSWORD en az 12 karakter olmali.');
-    process.exitCode = 1;
-    return;
-  }
-
   const db = openDatabase(process.env.DATABASE_URL);
   try {
     const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);

@@ -46,7 +46,7 @@
     <form data-api data-method="POST" action="/api/users" data-redirect="/panel/admin/users">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <label>E-posta <input type="email" name="email" required></label>
-      <label>Geçici parola <input type="password" name="password" required minlength="12"></label>
+      <label>Geçici parola <input type="password" name="password" required></label>
       <label>Rol
         <select name="role">
           <option value="editor">editor</option>

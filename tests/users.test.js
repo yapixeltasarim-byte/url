@@ -81,6 +81,21 @@ describe('UserService + SessionService', () => {
 });
 
 describe('ensureFirstAdmin', () => {
+  it('kisa parolayla da ilk admini olusturur', async () => {
+    const db = makeDb();
+    const services = await makeAppServices(db);
+    const result = await ensureFirstAdmin(
+      db,
+      { seedAdminEmail: 'kisa@example.com', seedAdminPassword: 'ab' },
+      services.passwordService,
+      services.auditLogger,
+    );
+    assert.equal(result.created, true);
+    const user = await services.userService.authenticate('kisa@example.com', 'ab', '127.0.0.1');
+    assert.equal(user.email, 'kisa@example.com');
+    db.close();
+  });
+
   it('bos veritabaninda SEED_ADMIN ile ilk admini olusturur', async () => {
     const db = makeDb();
     const services = await makeAppServices(db);
