@@ -3,6 +3,7 @@
 const UAParser = require('ua-parser-js');
 const { isBotUserAgent } = require('./BotDetector');
 const { hashIp } = require('./ipHash');
+const { toIso, asIntBool } = require('../../infra/db/rows');
 
 /**
  * GERI ALINDI: geoip-lite'in veri dosyasi 111MB, yuklendiginde ~105MB RAM
@@ -17,9 +18,28 @@ function resolveCountry(req) {
 }
 
 class ClickRecorder {
-  constructor(prisma, ipHashSalt) {
-    this.prisma = prisma;
+  constructor(db, ipHashSalt) {
+    this.db = db;
     this.ipHashSalt = ipHashSalt;
+    this._insert = db.prepare(`
+      INSERT INTO click_events (link_id, ts, ip_hash, country, city, device, os, browser, is_bot)
+      VALUES (@linkId, @ts, @ipHash, @country, @city, @device, @os, @browser, @isBot)
+    `);
+    this._persistMany = db.transaction((events) => {
+      for (const event of events) {
+        this._insert.run({
+          linkId: event.linkId,
+          ts: toIso(event.ts) || new Date().toISOString(),
+          ipHash: event.ipHash,
+          country: event.country,
+          city: event.city,
+          device: event.device,
+          os: event.os,
+          browser: event.browser,
+          isBot: asIntBool(event.isBot),
+        });
+      }
+    });
   }
 
   /**
@@ -45,19 +65,7 @@ class ClickRecorder {
   /** BufferedSink/RedisStreamSink tuketicisi tarafindan periyodik cagrilir. */
   async persist(events) {
     if (events.length === 0) return;
-    await this.prisma.$transaction(events.map((e) => this.prisma.clickEvent.create({
-      data: {
-        linkId: e.linkId,
-        ts: new Date(e.ts),
-        ipHash: e.ipHash,
-        country: e.country,
-        city: e.city,
-        device: e.device,
-        os: e.os,
-        browser: e.browser,
-        isBot: e.isBot,
-      },
-    })));
+    this._persistMany(events);
   }
 }
 

@@ -1,8 +1,10 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const { getContainer } = require('./config/container');
+const { closeDb } = require('./infra/db/sqlite');
 
 const { securityHeaders } = require('./http/middleware/security');
 const { attachUser } = require('./http/middleware/auth');
@@ -29,19 +31,19 @@ const { buildUsersApiRouter } = require('./http/routes/api/users');
 const { buildDomainsApiRouter } = require('./http/routes/api/domains');
 const { buildAnalyticsApiRouter } = require('./http/routes/api/analytics');
 
-const { env, prisma, cache, sink, limiter } = getContainer();
+const { env, db, cache, sink, limiter } = getContainer();
 
 // --- Servisler (domain/) - req/res bilmezler ---
-const auditLogger = new AuditLogger(prisma);
+const auditLogger = new AuditLogger(db);
 const passwordService = new PasswordService();
-const userService = new UserService(prisma, passwordService, auditLogger);
-const sessionService = new SessionService(prisma);
-const urlValidator = new UrlValidator(prisma);
+const userService = new UserService(db, passwordService, auditLogger);
+const sessionService = new SessionService(db);
+const urlValidator = new UrlValidator(db);
 const codeGenerator = new CodeGenerator();
-const linkService = new LinkService({ prisma, cache, urlValidator, codeGenerator, auditLogger });
-const domainService = new DomainService(prisma, auditLogger);
-const clickRecorder = new ClickRecorder(prisma, env.ipHashSalt);
-const analyticsService = new AnalyticsService(prisma);
+const linkService = new LinkService({ db, cache, urlValidator, codeGenerator, auditLogger });
+const domainService = new DomainService(db, auditLogger);
+const clickRecorder = new ClickRecorder(db, env.ipHashSalt);
+const analyticsService = new AnalyticsService(db);
 
 // EventSink tuketicisi: tampondaki tiklama olaylarini periyodik olarak veritabanina yazar.
 sink.registerConsumer((events) => clickRecorder.persist(events));
@@ -51,7 +53,7 @@ sink.registerConsumer((events) => clickRecorder.persist(events));
 // Analitik" ekrani hicbir zaman guncellenmez. Bunun yerine surec kendi icinde
 // periyodik olarak calisir. runForDate'teki upsert mutlak deger yazdigi icin
 // (artan degil) bugunu tekrar tekrar yeniden hesaplamak tamamen guvenlidir.
-const rollupJob = new RollupJob(prisma);
+const rollupJob = new RollupJob(db);
 async function runRollupSafely() {
   try {
     await rollupJob.runForTodayAndYesterday();
@@ -60,7 +62,6 @@ async function runRollupSafely() {
     console.error('[rollup] basarisiz:', err.message);
   }
 }
-runRollupSafely();
 const rollupInterval = setInterval(runRollupSafely, 15 * 60_000);
 rollupInterval.unref?.();
 
@@ -87,7 +88,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public'), {
 
 // Terminal/SSH erisimi olmayan hosting icin tek seferlik kurulum ucu - SETUP_TOKEN
 // tanimli degilse tamamen kapali. Body parser/oturum gerektirmez, en once mont edilir.
-app.use('/', buildSetupRouter({ env, prisma, passwordService, auditLogger, rollupJob }));
+app.use('/', buildSetupRouter({ env, db, passwordService, auditLogger, rollupJob }));
 
 app.use(express.json({ limit: '20kb' }));
 app.use(express.urlencoded({ extended: false, limit: '20kb' }));
@@ -128,18 +129,38 @@ app.use((err, req, res, next) => {
   res.status(500).render('error', { message });
 });
 
+const PID_FILE = path.join(__dirname, '..', 'data', 'app.pid');
+
+function writePidFile() {
+  fs.mkdirSync(path.dirname(PID_FILE), { recursive: true });
+  fs.writeFileSync(PID_FILE, `${process.pid}\n`, 'utf8');
+}
+
+function removePidFile() {
+  try {
+    const recorded = fs.readFileSync(PID_FILE, 'utf8').trim();
+    if (recorded === String(process.pid)) fs.unlinkSync(PID_FILE);
+  } catch {
+    // pid dosyasi yoksa veya baska surece aitse sessizce gec
+  }
+}
+
 const server = app.listen(env.port, () => {
+  writePidFile();
   // eslint-disable-next-line no-console
   console.log(`[index] ${env.nodeEnv} ortamında dinleniyor: ${env.appBaseUrl} (port ${env.port})`);
+  // Port once acilir; acilis rollup'i dinlemeyi geciktirmesin (Hostinger saglik kontrolu).
+  runRollupSafely();
 });
 
 async function shutdown(signal) {
   // eslint-disable-next-line no-console
   console.log(`[index] ${signal} alındı, kapatılıyor...`);
+  removePidFile();
   server.close();
   clearInterval(rollupInterval);
   await sink.stop();
-  await prisma.$disconnect();
+  closeDb();
   process.exit(0);
 }
 

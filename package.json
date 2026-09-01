@@ -8,25 +8,25 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
-    "seed": "node prisma/seed.js",
+    "stop": "sh stop.sh",
+    "lint": "node scripts/lint.js",
+    "migrate": "node scripts/migrate.js",
+    "seed": "node scripts/seed.js",
+    "postinstall": "node -e \"require('better-sqlite3')\"",
     "job:rollup": "node src/jobs/dailyRollup.js",
     "job:cleanup-sessions": "node src/jobs/cleanupSessions.js",
     "job:archive-clicks": "node src/jobs/archiveClicks.js",
-    "test": "node --test tests/"
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
-    "@prisma/client": "^6.1.0",
     "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.11.1",
     "cookie": "^1.0.2",
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",
     "express": "^4.21.1",
     "helmet": "^8.0.0",
     "lru-cache": "^11.0.2",
-    "prisma": "^6.1.0",
     "qrcode": "^1.5.4",
     "ua-parser-js": "^1.0.39"
   },
@@ -34,8 +34,9 @@
     "ioredis": "^5.4.1"
   },
   "allowScripts": {
-    "@prisma/client@6.19.3": true,
-    "prisma@6.12.0": true,
-    "@prisma/engines@6.12.0": true
+    "better-sqlite3": true
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

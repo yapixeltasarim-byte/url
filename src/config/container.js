@@ -1,7 +1,7 @@
 'use strict';
 
 const env = require('./env');
-const prisma = require('../infra/db/prisma');
+const { getDb } = require('../infra/db/sqlite');
 
 const MemoryCache = require('../infra/cache/MemoryCache');
 const BufferedSink = require('../infra/sink/BufferedSink');
@@ -16,6 +16,7 @@ const MemoryLimiter = require('../infra/limiter/MemoryLimiter');
 let container = null;
 
 function buildContainer() {
+  const db = getDb(env.databaseUrl);
   let cache;
   let sink;
   let limiter;
@@ -37,7 +38,7 @@ function buildContainer() {
     limiter = new MemoryLimiter();
   }
 
-  return { env, prisma, cache, sink, limiter };
+  return { env, db, cache, sink, limiter };
 }
 
 /** Uygulama boyunca tek bir container ornegi kullanilir. */

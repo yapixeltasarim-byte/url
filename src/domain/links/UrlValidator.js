@@ -1,5 +1,7 @@
 'use strict';
 
+const { asBool } = require('../../infra/db/rows');
+
 class ValidationError extends Error {
   constructor(code, message) {
     super(message);
@@ -12,8 +14,8 @@ class ValidationError extends Error {
  * basarisiz olursa istek reddedilir - bu sistemin en hassas noktasidir.
  */
 class UrlValidator {
-  constructor(prisma) {
-    this.prisma = prisma;
+  constructor(db) {
+    this.db = db;
   }
 
   async validate(rawUrl) {
@@ -56,8 +58,8 @@ class UrlValidator {
   }
 
   async isHostAllowed(host) {
-    const domains = await this.prisma.allowedDomain.findMany({ where: { isActive: true } });
-    return domains.some(({ pattern }) => matchesPattern(host, pattern));
+    const domains = this.db.prepare('SELECT pattern, is_active FROM allowed_domains WHERE is_active = 1').all();
+    return domains.some(({ pattern, is_active: isActive }) => asBool(isActive) && matchesPattern(host, pattern));
   }
 }
 

@@ -1,21 +1,25 @@
 'use strict';
 
+const { mapClickDaily, mapClickEvent, toIso } = require('../../infra/db/rows');
+
 /**
  * Analitik ekranlari YALNIZCA click_daily tablosunu okur, ham tabloyu
  * asla saymaz (bkz. Bolum 7.1). Boylece milyonlarca tiklama birikse bile
  * grafikler aninda acilir.
  */
 class AnalyticsService {
-  constructor(prisma) {
-    this.prisma = prisma;
+  constructor(db) {
+    this.db = db;
   }
 
   async overview({ days = 30 } = {}) {
-    const since = new Date(Date.now() - days * 24 * 3600_000);
-    const rows = await this.prisma.clickDaily.findMany({
-      where: { date: { gte: since } },
-      include: { link: { select: { campaign: true, code: true, title: true } } },
-    });
+    const since = toIso(new Date(Date.now() - days * 24 * 3600_000));
+    const rows = this.db.prepare(`
+      SELECT d.*, l.campaign AS link_campaign, l.code AS link_code, l.title AS link_title
+      FROM click_daily d
+      LEFT JOIN links l ON l.id = d.link_id
+      WHERE d.date >= ?
+    `).all(since).map(mapClickDaily);
 
     const humanRows = rows.filter((r) => !r.isBot);
 
@@ -52,11 +56,11 @@ class AnalyticsService {
    * hacimli bir ham tablo sorgusuyla hesaplanir - global ekranlar bunu YAPMAZ.
    */
   async overviewForLink(linkId, { days = 30 } = {}) {
-    const since = new Date(Date.now() - days * 24 * 3600_000);
+    const since = toIso(new Date(Date.now() - days * 24 * 3600_000));
 
-    const dailyRows = await this.prisma.clickDaily.findMany({
-      where: { linkId, date: { gte: since } },
-    });
+    const dailyRows = this.db.prepare(`
+      SELECT * FROM click_daily WHERE link_id = ? AND date >= ?
+    `).all(linkId, since).map(mapClickDaily);
     const humanDaily = dailyRows.filter((r) => !r.isBot);
 
     const byDate = new Map();
@@ -69,11 +73,12 @@ class AnalyticsService {
     const totalClicks = humanDaily.reduce((sum, r) => sum + r.count, 0);
     const totalBotClicks = dailyRows.filter((r) => r.isBot).reduce((sum, r) => sum + r.count, 0);
 
-    const rawEvents = await this.prisma.clickEvent.findMany({
-      where: { linkId, ts: { gte: since }, isBot: false },
-      select: { ts: true, device: true, os: true, browser: true },
-      orderBy: { ts: 'asc' },
-    });
+    const rawEvents = this.db.prepare(`
+      SELECT ts, device, os, browser
+      FROM click_events
+      WHERE link_id = ? AND ts >= ? AND is_bot = 0
+      ORDER BY ts ASC
+    `).all(linkId, since).map(mapClickEvent);
 
     const tally = (field) => {
       const map = new Map();
@@ -97,12 +102,14 @@ class AnalyticsService {
   }
 
   async exportCsvRows({ days = 90 } = {}) {
-    const since = new Date(Date.now() - days * 24 * 3600_000);
-    return this.prisma.clickDaily.findMany({
-      where: { date: { gte: since } },
-      include: { link: { select: { code: true, title: true, campaign: true } } },
-      orderBy: { date: 'desc' },
-    });
+    const since = toIso(new Date(Date.now() - days * 24 * 3600_000));
+    return this.db.prepare(`
+      SELECT d.*, l.code AS link_code, l.title AS link_title, l.campaign AS link_campaign
+      FROM click_daily d
+      LEFT JOIN links l ON l.id = d.link_id
+      WHERE d.date >= ?
+      ORDER BY d.date DESC
+    `).all(since).map(mapClickDaily);
   }
 }
 

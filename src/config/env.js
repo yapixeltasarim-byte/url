@@ -1,6 +1,11 @@
 'use strict';
 
-require('dotenv').config();
+const path = require('path');
+
+// cwd Hostinger/Passenger'da bazen uygulama koku disina dusebilir;
+// .env her zaman proje kokunden okunur. Panelden enjekte edilen degiskenler
+// zaten process.env'de oldugu icin dotenv onlarin ustune yazmaz.
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 // PORT kasitli olarak burada degil - cPanel/Plesk Node.js Selector (Passenger) surece
 // PORT'u kendisi enjekte eder; bunu zorunlu sayip bos deger gorunce surec kapanirsa
@@ -63,6 +68,8 @@ module.exports = {
   port: Number(process.env.PORT) || 3000,
   appBaseUrl: process.env.APP_BASE_URL.replace(/\/+$/, ''),
   cacheDriver,
+  // SQLite dosya yolu. `file:` oneki (eski Prisma bicimi) kabul edilir;
+  // relatif yollar proje kokune gore cozulur.
   databaseUrl: process.env.DATABASE_URL,
   redisUrl: process.env.REDIS_URL || null,
   sessionSecret: process.env.SESSION_SECRET,

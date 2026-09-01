@@ -1,89 +1,19 @@
 'use strict';
 
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
-
-/**
- * Bazi izole hosting ortamlarinda alt surec baslatmak (child_process) basarisiz
- * olabiliyor (EAGAIN, ENOENT). Bu yuzden migration SQL dosyalari CLI/alt surec
- * hic kullanilmadan, ayni surecte, dogrudan Prisma client uzerinden calistirilir.
- * _prisma_migrations tablosu da Prisma'nin kendi formatiyla doldurulur; boylece
- * ileride gercek `prisma migrate deploy` calistirilirsa cakisma olmaz.
- */
-async function applyPendingMigrations(prisma, log) {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
-      "id" TEXT PRIMARY KEY NOT NULL,
-      "checksum" TEXT NOT NULL,
-      "finished_at" DATETIME,
-      "migration_name" TEXT NOT NULL,
-      "logs" TEXT,
-      "rolled_back_at" DATETIME,
-      "started_at" DATETIME NOT NULL DEFAULT current_timestamp,
-      "applied_steps_count" INTEGER UNSIGNED NOT NULL DEFAULT 0
-    )
-  `);
-
-  const migrationsDir = path.join(__dirname, '..', '..', '..', 'prisma', 'migrations');
-  const folders = fs.readdirSync(migrationsDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
-    .sort();
-
-  for (const folder of folders) {
-    const sqlPath = path.join(migrationsDir, folder, 'migration.sql');
-    if (!fs.existsSync(sqlPath)) continue;
-
-    // eslint-disable-next-line no-await-in-loop
-    const already = await prisma.$queryRawUnsafe(
-      'SELECT 1 FROM "_prisma_migrations" WHERE migration_name = ?', folder,
-    );
-    if (already.length > 0) {
-      log.push(`${folder}: zaten uygulanmis, atlandi.`);
-      // eslint-disable-next-line no-continue
-      continue;
-    }
-
-    const sql = fs.readFileSync(sqlPath, 'utf8');
-    const checksum = crypto.createHash('sha256').update(sql).digest('hex');
-    // Once yorum SATIRLARI cikarilir, sonra ';' ile bolunur - aksi halde
-    // "-- CreateTable" yorumuyla baslayan blok, icindeki gercek CREATE TABLE
-    // ifadesiyle birlikte yorum sanilip tamamen atlanir.
-    const cleanedSql = sql
-      .split('\n')
-      .filter((line) => !line.trim().startsWith('--'))
-      .join('\n');
-    const statements = cleanedSql
-      .split(';')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-
-    for (const statement of statements) {
-      // eslint-disable-next-line no-await-in-loop
-      await prisma.$executeRawUnsafe(statement);
-    }
-
-    const id = crypto.randomUUID();
-    // eslint-disable-next-line no-await-in-loop
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO "_prisma_migrations"
-       (id, checksum, finished_at, migration_name, applied_steps_count, started_at)
-       VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, CURRENT_TIMESTAMP)`,
-      id, checksum, folder, statements.length,
-    );
-    log.push(`${folder}: uygulandi (${statements.length} ifade).`);
-  }
-}
+const { applyMigrations } = require('../../infra/db/migrate');
+const { mapUser, nowIso } = require('../../infra/db/rows');
 
 /**
  * Terminal/SSH erisimi olmayan paylasimli hosting ortamlari icin tek seferlik
  * kurulum ucu: bekleyen migration'lari uygular + ilk admin hesabini olusturur.
  * SETUP_TOKEN ortam degiskeni tanimli degilse bu uc nokta tamamen kapalidir.
  * Kullanildiktan sonra SETUP_TOKEN'i ortam degiskenlerinden kaldirmak guvenlidir.
+ *
+ * Migration'lar surec acilisinda da uygulanir (bkz. src/infra/db/sqlite.js);
+ * bu uc nokta ayni isi tekrar cagirir - dosyalar idempotenttir.
  */
-function buildSetupRouter({ env, prisma, passwordService, auditLogger, rollupJob }) {
+function buildSetupRouter({ env, db, passwordService, auditLogger, rollupJob }) {
   const router = express.Router();
 
   router.get('/setup/bootstrap', async (req, res) => {
@@ -94,23 +24,25 @@ function buildSetupRouter({ env, prisma, passwordService, auditLogger, rollupJob
     const log = [];
     try {
       log.push('== migration ==');
-      await applyPendingMigrations(prisma, log);
+      applyMigrations(db, log);
 
       log.push('\n== ilk admin hesabi ==');
       if (!env.seedAdminEmail || !env.seedAdminPassword) {
         log.push('SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD tanımlı değil, admin oluşturulmadı.');
       } else {
         const email = env.seedAdminEmail.toLowerCase();
-        const existing = await prisma.user.findUnique({ where: { email } });
+        const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
         if (existing) {
           log.push(`${email} zaten mevcut, atlanildi.`);
         } else {
           const passwordHash = await passwordService.hash(env.seedAdminPassword);
-          const admin = await prisma.user.create({
-            data: { email, passwordHash, role: 'admin', isActive: true },
-          });
+          const ts = nowIso();
+          const result = db.prepare(`
+            INSERT INTO users (email, password_hash, role, is_active, created_at, updated_at)
+            VALUES (?, ?, 'admin', 1, ?, ?)
+          `).run(email, passwordHash, ts, ts);
           await auditLogger.log({
-            userId: admin.id, action: 'user.create', entity: 'user', entityId: admin.id,
+            userId: result.lastInsertRowid, action: 'user.create', entity: 'user', entityId: result.lastInsertRowid,
             detail: { via: 'setup-bootstrap' },
           });
           log.push(`Admin olusturuldu: ${email}`);
@@ -150,26 +82,34 @@ function buildSetupRouter({ env, prisma, passwordService, auditLogger, rollupJob
       trace('passwordService.hash bitti');
       log.push(`passwordService.hash: ${Date.now() - t0}ms`);
 
-      trace('prisma.user.findUnique basliyor');
-      const existing = await prisma.user.findUnique({ where: { email } });
-      trace('prisma.user.findUnique bitti');
-      log.push(`prisma.user.findUnique: ${Date.now() - t0}ms (${existing ? 'mevcut' : 'yeni'})`);
+      trace('users.findUnique basliyor');
+      const existing = mapUser(db.prepare('SELECT * FROM users WHERE email = ?').get(email));
+      trace('users.findUnique bitti');
+      log.push(`users.findUnique: ${Date.now() - t0}ms (${existing ? 'mevcut' : 'yeni'})`);
 
-      let user;
+      let userId;
+      const ts = nowIso();
       if (existing) {
-        trace('prisma.user.update basliyor');
-        user = await prisma.user.update({ where: { email }, data: { passwordHash, role: 'admin', isActive: true } });
-        trace('prisma.user.update bitti');
+        trace('users.update basliyor');
+        db.prepare(`
+          UPDATE users SET password_hash = ?, role = 'admin', is_active = 1, updated_at = ? WHERE email = ?
+        `).run(passwordHash, ts, email);
+        userId = existing.id;
+        trace('users.update bitti');
       } else {
-        trace('prisma.user.create basliyor');
-        user = await prisma.user.create({ data: { email, passwordHash, role: 'admin', isActive: true } });
-        trace('prisma.user.create bitti');
+        trace('users.create basliyor');
+        const result = db.prepare(`
+          INSERT INTO users (email, password_hash, role, is_active, created_at, updated_at)
+          VALUES (?, ?, 'admin', 1, ?, ?)
+        `).run(email, passwordHash, ts, ts);
+        userId = result.lastInsertRowid;
+        trace('users.create bitti');
       }
       log.push(`kullanici islemi: ${Date.now() - t0}ms`);
 
       trace('auditLogger.log basliyor');
       await auditLogger.log({
-        userId: user.id, action: existing ? 'user.password_change' : 'user.create', entity: 'user', entityId: user.id,
+        userId, action: existing ? 'user.password_change' : 'user.create', entity: 'user', entityId: userId,
         detail: { via: 'setup-create-admin' },
       });
       trace('auditLogger.log bitti');

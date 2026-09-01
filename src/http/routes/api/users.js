@@ -30,7 +30,9 @@ function buildUsersApiRouter({ userService }) {
       res.status(201).json({ user: safe });
     } catch (err) {
       if (err.code === 'weak_password') return res.status(400).json({ error: err.code, message: err.message });
-      if (err.code === 'P2002') return res.status(409).json({ error: 'email_taken', message: 'Bu e-posta zaten kayıtlı.' });
+      if (String(err.code || '').startsWith('SQLITE_CONSTRAINT_UNIQUE')) {
+        return res.status(409).json({ error: 'email_taken', message: 'Bu e-posta zaten kayıtlı.' });
+      }
       next(err);
     }
   });

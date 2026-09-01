@@ -1,12 +1,14 @@
 'use strict';
 
 require('../config/env');
-const prisma = require('../infra/db/prisma');
+const { getDb, closeDb } = require('../infra/db/sqlite');
+const { nowIso } = require('../infra/db/rows');
 
 async function main() {
-  const result = await prisma.session.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+  const db = getDb();
+  const result = db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(nowIso());
   // eslint-disable-next-line no-console
-  console.log(`[cleanupSessions] ${result.count} suresi gecmis oturum silindi.`);
+  console.log(`[cleanupSessions] ${result.changes} suresi gecmis oturum silindi.`);
 }
 
 main()
@@ -15,4 +17,4 @@ main()
     console.error('[cleanupSessions] basarisiz:', err);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(() => closeDb());

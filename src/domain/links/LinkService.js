@@ -1,6 +1,7 @@
 'use strict';
 
 const { ValidationError } = require('./UrlValidator');
+const { mapLink, nowIso, toIso, notFound } = require('../../infra/db/rows');
 
 const CACHE_TTL_SECONDS = 60;
 
@@ -23,12 +24,20 @@ function toCacheValue(link) {
 }
 
 class LinkService {
-  constructor({ prisma, cache, urlValidator, codeGenerator, auditLogger }) {
-    this.prisma = prisma;
+  constructor({ db, cache, urlValidator, codeGenerator, auditLogger }) {
+    this.db = db;
     this.cache = cache;
     this.urlValidator = urlValidator;
     this.codeGenerator = codeGenerator;
     this.auditLogger = auditLogger;
+  }
+
+  _getById(id) {
+    return mapLink(this.db.prepare('SELECT * FROM links WHERE id = ?').get(Number(id)));
+  }
+
+  _getByCode(code) {
+    return mapLink(this.db.prepare('SELECT * FROM links WHERE code = ?').get(code));
   }
 
   async create({ targetUrl, title, campaign, expiresAt, customAlias, createdBy, ip }) {
@@ -38,19 +47,24 @@ class LinkService {
       ? await this._reserveCustomAlias(customAlias)
       : await this.codeGenerator.generateUnique(
         async (candidate) => RESERVED_CODES.has(candidate.toLowerCase())
-          || Boolean(await this.prisma.link.findUnique({ where: { code: candidate } })),
+          || Boolean(this.db.prepare('SELECT 1 FROM links WHERE code = ?').get(candidate)),
       );
 
-    const link = await this.prisma.link.create({
-      data: {
-        code,
-        targetUrl: validTargetUrl,
-        title: title || null,
-        campaign: campaign || null,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
-        createdBy,
-      },
-    });
+    const ts = nowIso();
+    const result = this.db.prepare(`
+      INSERT INTO links (code, target_url, title, campaign, expires_at, created_by, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+    `).run(
+      code,
+      validTargetUrl,
+      title || null,
+      campaign || null,
+      expiresAt ? toIso(new Date(expiresAt)) : null,
+      createdBy,
+      ts,
+      ts,
+    );
+    const link = this._getById(result.lastInsertRowid);
 
     // Write-through: olusturuldugu anda hem veritabanina hem onbellege yazilir (bkz. Bolum 2.3).
     await this.cache.set(link.code, toCacheValue(link), CACHE_TTL_SECONDS);
@@ -68,7 +82,7 @@ class LinkService {
     const cached = await this.cache.get(code);
     if (cached) return cached;
 
-    const link = await this.prisma.link.findUnique({ where: { code } });
+    const link = this._getByCode(code);
     if (!link) return null;
 
     const value = toCacheValue(link);
@@ -77,22 +91,27 @@ class LinkService {
   }
 
   async getById(id) {
-    return this.prisma.link.findUnique({ where: { id: Number(id) } });
+    return this._getById(id);
   }
 
   async listOwn(userId) {
-    return this.prisma.link.findMany({ where: { createdBy: userId }, orderBy: { createdAt: 'desc' } });
+    return this.db.prepare(
+      'SELECT * FROM links WHERE created_by = ? ORDER BY created_at DESC',
+    ).all(userId).map(mapLink);
   }
 
   async listAll() {
-    return this.prisma.link.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: { creator: { select: { email: true } } },
-    });
+    return this.db.prepare(`
+      SELECT l.*, u.email AS creator_email
+      FROM links l
+      LEFT JOIN users u ON u.id = l.created_by
+      ORDER BY l.created_at DESC
+    `).all().map(mapLink);
   }
 
   async edit(id, { title, campaign, targetUrl, expiresAt }, actingUserId, ip) {
-    const existing = await this.prisma.link.findUniqueOrThrow({ where: { id: Number(id) } });
+    const existing = this._getById(id);
+    if (!existing) notFound('Bağlantı');
 
     const data = {};
     if (title !== undefined) data.title = title || null;
@@ -105,7 +124,15 @@ class LinkService {
       targetChanged = true;
     }
 
-    const link = await this.prisma.link.update({ where: { id: existing.id }, data });
+    const sets = ['updated_at = @updatedAt'];
+    const params = { id: existing.id, updatedAt: nowIso() };
+    if (data.title !== undefined) { sets.push('title = @title'); params.title = data.title; }
+    if (data.campaign !== undefined) { sets.push('campaign = @campaign'); params.campaign = data.campaign; }
+    if (data.expiresAt !== undefined) { sets.push('expires_at = @expiresAt'); params.expiresAt = toIso(data.expiresAt); }
+    if (data.targetUrl !== undefined) { sets.push('target_url = @targetUrl'); params.targetUrl = data.targetUrl; }
+
+    this.db.prepare(`UPDATE links SET ${sets.join(', ')} WHERE id = @id`).run(params);
+    const link = this._getById(existing.id);
 
     // Onbellekte etkin bir kayit varsa yeni degerlerle yeniden yazilir (write-through).
     await this.cache.set(link.code, toCacheValue(link), CACHE_TTL_SECONDS);
@@ -121,8 +148,10 @@ class LinkService {
   }
 
   async disable(id, actingUserId, ip) {
-    const existing = await this.prisma.link.findUniqueOrThrow({ where: { id: Number(id) } });
-    const link = await this.prisma.link.update({ where: { id: existing.id }, data: { isActive: false } });
+    const existing = this._getById(id);
+    if (!existing) notFound('Bağlantı');
+    this.db.prepare('UPDATE links SET is_active = 0, updated_at = ? WHERE id = ?').run(nowIso(), existing.id);
+    const link = this._getById(existing.id);
 
     // ZORUNLU: onbellek silinmezse baglanti TTL suresi boyunca calismaya devam eder (bkz. Bolum 8.3).
     await this.cache.del(link.code);
@@ -136,8 +165,10 @@ class LinkService {
 
   /** Yanlislikla pasife alinan bir baglanti geri alinabilir (bkz. Bolum 7.2). */
   async enable(id, actingUserId, ip) {
-    const existing = await this.prisma.link.findUniqueOrThrow({ where: { id: Number(id) } });
-    const link = await this.prisma.link.update({ where: { id: existing.id }, data: { isActive: true } });
+    const existing = this._getById(id);
+    if (!existing) notFound('Bağlantı');
+    this.db.prepare('UPDATE links SET is_active = 1, updated_at = ? WHERE id = ?').run(nowIso(), existing.id);
+    const link = this._getById(existing.id);
 
     // Write-through: tekrar aktif oldugu icin onbellege yeniden yazilir.
     await this.cache.set(link.code, toCacheValue(link), CACHE_TTL_SECONDS);
@@ -161,7 +192,7 @@ class LinkService {
       err.code = 'reserved_alias';
       throw err;
     }
-    const existing = await this.prisma.link.findUnique({ where: { code: alias } });
+    const existing = this._getByCode(alias);
     if (existing) {
       const err = new Error('Bu kısa kod zaten kullanılıyor.');
       err.code = 'alias_taken';
@@ -171,8 +202,8 @@ class LinkService {
   }
 
   async ownerOf(id) {
-    const link = await this.prisma.link.findUnique({ where: { id: Number(id) }, select: { createdBy: true } });
-    return link ? link.createdBy : null;
+    const row = this.db.prepare('SELECT created_by FROM links WHERE id = ?').get(Number(id));
+    return row ? row.created_by : null;
   }
 }
 
