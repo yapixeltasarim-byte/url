@@ -4,6 +4,7 @@ const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { makeDb, makeAppServices, seedAdmin } = require('./helpers');
 const { LastAdminError, AuthError } = require('../src/domain/users/UserService');
+const { ensureFirstAdmin } = require('../src/domain/users/ensureFirstAdmin');
 
 describe('UserService + SessionService', () => {
   let db;
@@ -76,5 +77,44 @@ describe('UserService + SessionService', () => {
     const refreshed = await services.sessionService.validateAndRefresh(session.id);
     assert.equal(refreshed, null);
     assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n, 0);
+  });
+});
+
+describe('ensureFirstAdmin', () => {
+  it('bos veritabaninda SEED_ADMIN ile ilk admini olusturur', async () => {
+    const db = makeDb();
+    const services = await makeAppServices(db);
+    const result = await ensureFirstAdmin(
+      db,
+      { seedAdminEmail: 'Seed.Admin@Example.com', seedAdminPassword: 'IlkParola1234' },
+      services.passwordService,
+      services.auditLogger,
+    );
+    assert.equal(result.created, true);
+    assert.equal(result.email, 'seed.admin@example.com');
+    const user = await services.userService.authenticate('seed.admin@example.com', 'IlkParola1234', '127.0.0.1');
+    assert.equal(user.role, 'admin');
+    db.close();
+  });
+
+  it('kullanici varken seed parolasini ezmez', async () => {
+    const db = makeDb();
+    const services = await makeAppServices(db);
+    await seedAdmin(db, services.passwordService, { email: 'admin@example.com', password: 'DegistirBu123!' });
+    const result = await ensureFirstAdmin(
+      db,
+      { seedAdminEmail: 'admin@example.com', seedAdminPassword: 'BaskaParola123' },
+      services.passwordService,
+      services.auditLogger,
+    );
+    assert.equal(result.created, false);
+    assert.equal(result.reason, 'users_exist');
+    await assert.rejects(
+      () => services.userService.authenticate('admin@example.com', 'BaskaParola123', '127.0.0.1'),
+      AuthError,
+    );
+    const user = await services.userService.authenticate('admin@example.com', 'DegistirBu123!', '127.0.0.1');
+    assert.equal(user.email, 'admin@example.com');
+    db.close();
   });
 });

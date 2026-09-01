@@ -45,7 +45,7 @@ function createDiagnosticApp(err) {
   return app;
 }
 
-function buildApp() {
+async function buildApp() {
   const { getContainer } = require('./config/container');
   const { closeDb } = require('./infra/db/sqlite');
 
@@ -78,6 +78,18 @@ function buildApp() {
 
   const auditLogger = new AuditLogger(db);
   const passwordService = new PasswordService();
+  const { ensureFirstAdmin } = require('./domain/users/ensureFirstAdmin');
+  const seed = await ensureFirstAdmin(db, env, passwordService, auditLogger);
+  if (seed.created) {
+    // eslint-disable-next-line no-console
+    console.log(`[seed] ilk admin olusturuldu: ${seed.email}`);
+  } else if (seed.reason === 'weak_password') {
+    // eslint-disable-next-line no-console
+    console.error('[seed] SEED_ADMIN_PASSWORD en az 12 karakter olmali, admin olusturulmadi.');
+  } else if (seed.reason === 'no_seed') {
+    // eslint-disable-next-line no-console
+    console.error('[seed] users bos; SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD tanimli degil.');
+  }
   const userService = new UserService(db, passwordService, auditLogger);
   const sessionService = new SessionService(db);
   const urlValidator = new UrlValidator(db);
@@ -182,31 +194,42 @@ function removePidFile() {
 
 let runtime = null;
 let app;
-try {
-  runtime = buildApp();
-  app = runtime.app;
-} catch (err) {
-  logBoot(err.stack || err.message);
-  app = createDiagnosticApp(err);
-}
+let server;
 
 function onListening() {
   writePidFile();
-  const port = Number(process.env.PORT) || (runtime && runtime.env && runtime.env.port) || 3000;
+  const boundPort = Number(process.env.PORT) || (runtime && runtime.env && runtime.env.port) || 3000;
   // eslint-disable-next-line no-console
-  console.log(`[index] dinleniyor (port ${port})`);
+  console.log(`[index] dinleniyor (port ${boundPort})`);
   if (runtime && runtime.onListening) runtime.onListening();
 }
 
-const port = Number(process.env.PORT) || 3000;
-let server;
-if (typeof PhusionPassenger !== 'undefined') {
-  // eslint-disable-next-line no-undef
-  PhusionPassenger.configure({ autoInstall: false });
-  server = app.listen('passenger', onListening);
-} else {
-  server = app.listen(port, onListening);
+function bind(appToBind) {
+  const port = Number(process.env.PORT) || 3000;
+  if (typeof PhusionPassenger !== 'undefined') {
+    // eslint-disable-next-line no-undef
+    PhusionPassenger.configure({ autoInstall: false });
+    return appToBind.listen('passenger', onListening);
+  }
+  return appToBind.listen(port, onListening);
 }
+
+async function main() {
+  try {
+    runtime = await buildApp();
+    app = runtime.app;
+  } catch (err) {
+    logBoot(err.stack || err.message);
+    app = createDiagnosticApp(err);
+  }
+  server = bind(app);
+  module.exports = app;
+}
+
+main().catch((err) => {
+  logBoot(err.stack || String(err));
+  process.exit(1);
+});
 
 async function shutdown(signal) {
   // eslint-disable-next-line no-console
@@ -225,5 +248,3 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (err) => {
   logBoot(`unhandledRejection ${err && (err.stack || err.message) || err}`);
 });
-
-module.exports = app;
